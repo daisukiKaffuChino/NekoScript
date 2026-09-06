@@ -1,0 +1,20 @@
+{
+  "id": "nekoscript-demo",
+  "name": "NekoScript Demo",
+  "version": "1.0.0",
+  "entryScript": "scripts/main.avg",
+  "backgrounds": {
+    "school_day": "backgrounds/school_day.jpg"
+  },
+  "characters": {
+    "yuki": {
+      "name": "悠希",
+      "defaultExpression": "normal",
+      "expressions": {
+        "normal": "characters/yuki/normal.png",
+        "happy": "characters/yuki/happy.png",
+        "surprised": "characters/yuki/surprised.png"
+      }
+    }
+  }
+}

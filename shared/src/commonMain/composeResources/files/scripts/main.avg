@@ -1,0 +1,26 @@
+label start
+background "school_day"
+character "yuki" "normal" center
+say "悠希" "早上好。"
+say "今天也一起去学校吧。"
+choice:
+    "早上好":
+        set affection.yuki = 1
+        jump route_check
+    "你是谁？":
+        set affection.yuki = 0
+        jump route_check
+label route_check
+if affection.yuki >= 1:
+    jump morning
+else:
+    jump stranger
+label morning
+character "yuki" "happy" center
+say "悠希" "嗯，出发吧。"
+jump end
+label stranger
+character "yuki" "surprised" center
+say "悠希" "诶？我们不是每天都见面吗？"
+label end
+say "第一幕  完"

@@ -1,0 +1,93 @@
+package io.github.daisukikaffuchino.nekoscript.engine.runtime
+
+import io.github.daisukikaffuchino.nekoscript.engine.asset.AssetManager
+import io.github.daisukikaffuchino.nekoscript.engine.asset.ManifestAssetManager
+import io.github.daisukikaffuchino.nekoscript.engine.audio.AudioPlayer
+import io.github.daisukikaffuchino.nekoscript.engine.audio.NoOpAudioPlayer
+import io.github.daisukikaffuchino.nekoscript.engine.error.EngineException
+import io.github.daisukikaffuchino.nekoscript.engine.logging.EngineLogger
+import io.github.daisukikaffuchino.nekoscript.engine.logging.NoOpEngineLogger
+import io.github.daisukikaffuchino.nekoscript.engine.project.GameProject
+import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectParser
+import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectSource
+import io.github.daisukikaffuchino.nekoscript.engine.save.SaveManager
+import io.github.daisukikaffuchino.nekoscript.engine.script.AvgScriptParser
+import io.github.daisukikaffuchino.nekoscript.engine.script.DefaultScriptRuntime
+import io.github.daisukikaffuchino.nekoscript.engine.script.Script
+import io.github.daisukikaffuchino.nekoscript.engine.script.ScriptParser
+import kotlinx.coroutines.CancellationException
+
+/** Fully assembled, project-independent game runtime and its asset resolver. */
+data class GameSession(
+    val project: GameProject,
+    val script: Script,
+    val engine: GameEngine,
+    val assetManager: AssetManager,
+)
+
+/** Creates a [SaveManager] scoped to one [GameProject]. */
+fun interface SaveManagerFactory {
+    fun create(project: GameProject): SaveManager
+}
+
+/** Creates an [AudioPlayer] capable of resolving one project's audio identifiers. */
+fun interface AudioPlayerFactory {
+    fun create(project: GameProject): AudioPlayer
+}
+
+/**
+ * Assembles a game session from a portable manifest and its entry script.
+ *
+ * Platform file, audio, and persistence capabilities enter through interfaces;
+ * the resulting runtime remains entirely in common Kotlin.
+ */
+class GameSessionFactory(
+    private val source: GameProjectSource,
+    private val saveManagerFactory: SaveManagerFactory,
+    private val audioPlayerFactory: AudioPlayerFactory = AudioPlayerFactory { NoOpAudioPlayer },
+    private val logger: EngineLogger = NoOpEngineLogger,
+    private val projectParser: GameProjectParser = GameProjectParser(),
+    private val scriptParser: ScriptParser = AvgScriptParser(),
+) {
+    /** Loads [manifestLocation] and creates a ready, not-yet-started session. */
+    suspend fun create(manifestLocation: String = DEFAULT_MANIFEST_LOCATION): GameSession {
+        require(manifestLocation.isNotBlank()) { "Manifest location must not be blank." }
+        val manifestText = readProjectText(manifestLocation)
+        val project = try {
+            projectParser.parse(manifestText)
+        } catch (error: Exception) {
+            throw EngineException.ProjectLoadError("manifest: $manifestLocation: ${error.message}", error)
+        }
+        val scriptText = readProjectText(project.entryScript)
+        val script = try {
+            scriptParser.parse(project.entryScript, scriptText)
+        } catch (error: Exception) {
+            throw EngineException.ProjectLoadError(
+                "project: ${project.id}, entry script: ${project.entryScript}: ${error.message}",
+                error,
+            )
+        }
+        val runtime = DefaultScriptRuntime(
+            script = script,
+            audioPlayer = audioPlayerFactory.create(project),
+            logger = logger,
+        )
+        return GameSession(
+            project = project,
+            script = script,
+            engine = GameEngine(runtime, saveManagerFactory.create(project)),
+            assetManager = ManifestAssetManager(project),
+        )
+    }
+
+    private suspend fun readProjectText(location: String): String = try {
+        source.readText(location)
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        throw EngineException.ProjectLoadError("project file: $location: failed to read", error)
+    }
+
+    companion object {
+        const val DEFAULT_MANIFEST_LOCATION: String = "game.json"
+    }
+}
