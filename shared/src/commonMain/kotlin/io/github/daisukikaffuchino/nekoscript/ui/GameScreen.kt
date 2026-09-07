@@ -75,6 +75,7 @@ import io.github.daisukikaffuchino.nekoscript.engine.viewport.GameViewport
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalPoint
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ImageAssetResolver
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ResolvedImageAsset
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -386,22 +387,23 @@ private fun BackgroundLayer(
     imageAssets: ImageAssetResolver,
     imageLoader: ImageLoader,
 ) {
-    val image by produceState<ResolvedImageAsset?>(
-        initialValue = null,
+    val loadState by produceState(
+        initialValue = ImageLoadState(),
         key1 = background?.assetId,
         key2 = imageAssets,
     ) {
-        value = background?.let { runCatching { imageAssets.resolveBackground(it.assetId) }.getOrNull() }
+        value = loadImage { background?.let { imageAssets.resolveBackground(it.assetId) } }
     }
     val color = if (background == null) Color(0xFF17201D) else Color(0xFF61756D)
     Box(Modifier.fillMaxSize().background(color)) {
         ResolvedAssetImage(
-            image = image,
+            image = loadState.image,
             imageLoader = imageLoader,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
             contentDescription = background?.assetId?.let { "Background $it" },
         )
+        loadState.error?.let { AssetLoadFailure(it) }
     }
 }
 
@@ -439,17 +441,15 @@ private fun CharacterSprite(
     imageLoader: ImageLoader,
     targetOffset: androidx.compose.ui.unit.Dp,
 ) {
-    val image by produceState<ResolvedImageAsset?>(
-        initialValue = null,
+    val loadState by produceState(
+        initialValue = ImageLoadState(),
         key1 = character.characterId,
         key2 = character.expression,
         key3 = imageAssets,
     ) {
-        value = runCatching {
-            imageAssets.resolveCharacter(character.characterId, character.expression)
-        }.getOrNull()
+        value = loadImage { imageAssets.resolveCharacter(character.characterId, character.expression) }
     }
-    var imageLoaded by remember(image) { mutableStateOf(false) }
+    var imageLoaded by remember(loadState.image) { mutableStateOf(false) }
     val imageAlpha by animateFloatAsState(
         targetValue = if (imageLoaded) 1f else 0f,
         animationSpec = tween(CHARACTER_FADE_IN_MILLIS),
@@ -467,7 +467,7 @@ private fun CharacterSprite(
         contentAlignment = Alignment.BottomCenter,
     ) {
         ResolvedAssetImage(
-            image = image,
+            image = loadState.image,
             imageLoader = imageLoader,
             modifier = Modifier
                 .fillMaxWidth(CHARACTER_FRAME_WIDTH_FRACTION)
@@ -480,6 +480,7 @@ private fun CharacterSprite(
             alpha = imageAlpha,
             onSuccess = { imageLoaded = true },
         )
+        loadState.error?.let { AssetLoadFailure(it) }
     }
 }
 
@@ -490,12 +491,12 @@ private fun CgLayer(
     imageLoader: ImageLoader,
 ) {
     if (assetId == null) return
-    val image by produceState<ResolvedImageAsset?>(
-        initialValue = null,
+    val loadState by produceState(
+        initialValue = ImageLoadState(),
         key1 = assetId,
         key2 = imageAssets,
     ) {
-        value = runCatching { imageAssets.resolveCg(assetId) }.getOrNull()
+        value = loadImage { imageAssets.resolveCg(assetId) }
     }
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xFF334C58)),
@@ -508,11 +509,39 @@ private fun CgLayer(
             fontWeight = FontWeight.Light,
         )
         ResolvedAssetImage(
-            image = image,
+            image = loadState.image,
             imageLoader = imageLoader,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
             contentDescription = "CG $assetId",
+        )
+        loadState.error?.let { AssetLoadFailure(it) }
+    }
+}
+
+private data class ImageLoadState(
+    val image: ResolvedImageAsset? = null,
+    val error: Throwable? = null,
+)
+
+private suspend fun loadImage(resolve: suspend () -> ResolvedImageAsset?): ImageLoadState = try {
+    ImageLoadState(image = resolve())
+} catch (error: Throwable) {
+    if (error is CancellationException) throw error
+    ImageLoadState(error = error)
+}
+
+@Composable
+private fun AssetLoadFailure(error: Throwable) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = error.message ?: "Asset failed to load",
+            color = Color(0xFFFFB4AB),
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
         )
     }
 }

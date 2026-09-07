@@ -26,12 +26,12 @@ private val DEMO_MANIFEST = """
       },
       "cg": { "club_photo": "cg/club_photo.jpg" },
       "audio": {
-        "bgm": { "morning_theme": "audio/bgm/morning_theme.ogg" },
+        "bgm": { "morning_theme": "audio/bgm/morning_theme.mp3" },
         "se": {
-          "school_bell": "audio/se/school_bell.ogg",
-          "class_bell": "audio/se/class_bell.ogg"
+          "school_bell": "audio/se/school_bell.mp3",
+          "class_bell": "audio/se/class_bell.mp3"
         },
-        "voice": { "yuki_good_morning": "audio/voice/yuki_good_morning.ogg" }
+        "voice": { "yuki_good_morning": "audio/voice/yuki_good_morning.mp3" }
       }
     }
 """.trimIndent()

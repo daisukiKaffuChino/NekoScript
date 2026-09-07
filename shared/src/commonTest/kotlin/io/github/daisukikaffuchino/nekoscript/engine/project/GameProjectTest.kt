@@ -49,8 +49,10 @@ class GameProjectTest {
         assertEquals("characters/yuki/normal.png", manager.loadCharacter("yuki", null).location)
         assertEquals("characters/yuki/happy.png", manager.loadCharacter("yuki", "happy").location)
         assertEquals("cg/ending.png", manager.loadCg("ending").location)
+        assertEquals("audio/bgm/theme.ogg", manager.loadBgm("theme").location)
         assertFailsWith<EngineException.AssetNotFound> { manager.loadBackground("missing") }
         assertFailsWith<EngineException.AssetNotFound> { manager.loadCharacter("yuki", "sad") }
+        assertFailsWith<EngineException.AssetNotFound> { manager.loadVoice("missing") }
     }
 
     @Test

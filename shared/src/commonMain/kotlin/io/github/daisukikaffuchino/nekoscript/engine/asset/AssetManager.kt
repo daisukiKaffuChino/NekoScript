@@ -10,4 +10,13 @@ interface AssetManager {
 
     /** Resolves a CG by logical [id]. */
     suspend fun loadCg(id: String): Asset
+
+    /** Resolves background music by logical [id]. */
+    suspend fun loadBgm(id: String): Asset
+
+    /** Resolves a sound effect by logical [id]. */
+    suspend fun loadSe(id: String): Asset
+
+    /** Resolves a voice clip by logical [id]. */
+    suspend fun loadVoice(id: String): Asset
 }

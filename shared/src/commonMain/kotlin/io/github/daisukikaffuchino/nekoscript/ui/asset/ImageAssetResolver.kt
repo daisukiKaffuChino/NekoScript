@@ -1,9 +1,10 @@
 package io.github.daisukikaffuchino.nekoscript.ui.asset
 
-import io.github.daisukikaffuchino.nekoscript.composeResourcePath
 import io.github.daisukikaffuchino.nekoscript.engine.asset.Asset
 import io.github.daisukikaffuchino.nekoscript.engine.asset.AssetManager
-import nekoscript.shared.generated.resources.Res
+import io.github.daisukikaffuchino.nekoscript.engine.error.EngineException
+import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectSource
+import kotlinx.coroutines.CancellationException
 
 /** Compressed image data for the current presentation request and its stable Coil cache identity. */
 class ResolvedImageAsset(
@@ -24,7 +25,7 @@ interface ImageAssetResolver {
 /** Reads manifest asset locations from packaged Compose resources. */
 class ComposeResourceImageAssetResolver(
     private val assetManager: AssetManager,
-    private val root: String = "files",
+    private val source: GameProjectSource,
 ) : ImageAssetResolver {
     override suspend fun resolveBackground(assetId: String): ResolvedImageAsset =
         resolve("background", assetManager.loadBackground(assetId))
@@ -36,11 +37,22 @@ class ComposeResourceImageAssetResolver(
         resolve("cg", assetManager.loadCg(assetId))
 
     private suspend fun resolve(kind: String, asset: Asset): ResolvedImageAsset {
-        val resourcePath = composeResourcePath(root, asset.location)
+        val data = try {
+            source.readBytes(asset.location)
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            throw EngineException.AssetLoadError(
+                assetType = kind,
+                assetId = asset.id,
+                location = asset.location,
+                message = "$kind asset '${asset.id}' at '${asset.location}' failed to load",
+                cause = error,
+            )
+        }
         return ResolvedImageAsset(
             assetId = asset.id,
-            data = Res.readBytes(resourcePath),
-            cacheKey = "nekoscript:$kind:${asset.id}:$resourcePath",
+            data = data,
+            cacheKey = "nekoscript:$kind:${asset.id}:${asset.location}",
         )
     }
 }

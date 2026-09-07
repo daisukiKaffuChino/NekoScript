@@ -28,6 +28,9 @@ import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameAction
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameSession
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameSessionFactory
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.SaveManagerFactory
+import io.github.daisukikaffuchino.nekoscript.engine.runtime.AudioPlayerFactory
+import io.github.daisukikaffuchino.nekoscript.engine.asset.ManifestAssetManager
+import io.github.daisukikaffuchino.nekoscript.engine.audio.KorlibsAudioPlayer
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectSource
 import io.github.daisukikaffuchino.nekoscript.engine.save.InMemorySaveStorage
 import io.github.daisukikaffuchino.nekoscript.engine.save.JsonSaveManager
@@ -70,6 +73,12 @@ fun App(
                     saveManagerFactory = SaveManagerFactory { project ->
                         JsonSaveManager(saveStorage, timestampProvider = timestampProvider)
                     },
+                    audioPlayerFactory = AudioPlayerFactory { project ->
+                        KorlibsAudioPlayer(
+                            assetManager = ManifestAssetManager(project),
+                            source = projectSource,
+                        )
+                    },
                 ).create()
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
@@ -86,7 +95,10 @@ fun App(
                 val state by engine.viewState.collectAsState()
                 val scope = rememberCoroutineScope()
                 val imageAssets = remember(currentSession) {
-                    ComposeResourceImageAssetResolver(currentSession.assetManager)
+                    ComposeResourceImageAssetResolver(currentSession.assetManager, projectSource)
+                }
+                DisposableEffect(currentSession) {
+                    onDispose(currentSession::release)
                 }
                 LaunchedEffect(engine) { engine.dispatch(GameAction.Next) }
                 GameScreen(

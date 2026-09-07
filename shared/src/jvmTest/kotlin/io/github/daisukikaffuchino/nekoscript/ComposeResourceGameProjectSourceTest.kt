@@ -3,6 +3,8 @@ package io.github.daisukikaffuchino.nekoscript
 import io.github.daisukikaffuchino.nekoscript.engine.asset.ManifestAssetManager
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectParser
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ComposeResourceImageAssetResolver
+import korlibs.audio.format.AudioDecodingProps
+import korlibs.audio.format.MP3Decoder
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -40,7 +42,7 @@ class ComposeResourceGameProjectSourceTest {
     fun resolvesPackagedBackgroundCharacterAndCgAsImageData() = runTest {
         val source = ComposeResourceGameProjectSource()
         val project = GameProjectParser().parse(source.readText("game.json"))
-        val resolver = ComposeResourceImageAssetResolver(ManifestAssetManager(project))
+        val resolver = ComposeResourceImageAssetResolver(ManifestAssetManager(project), source)
         val background = resolver.resolveBackground("school_day")
         val character = resolver.resolveCharacter("yuki", "normal")
         val cg = resolver.resolveCg("club_photo")
@@ -59,6 +61,26 @@ class ComposeResourceGameProjectSourceTest {
         assertFailsWith<IllegalArgumentException> { source.readText("../game.json") }
         assertFailsWith<IllegalArgumentException> { source.readText("scripts/../../game.json") }
         assertFailsWith<IllegalArgumentException> { source.readText("C:/game.json") }
+    }
+
+    @Test
+    fun readsAndDecodesEveryPackagedRuntimeMp3WithoutAudioHardware() = runTest {
+        val source = ComposeResourceGameProjectSource()
+        val locations = listOf(
+            "audio/bgm/morning_theme.mp3",
+            "audio/se/school_bell.mp3",
+            "audio/se/class_bell.mp3",
+        )
+
+        locations.forEach { location ->
+            val data = source.readBytes(location)
+            val decoded = MP3Decoder.decode(
+                data,
+                AudioDecodingProps(maxSamples = 4096, formats = MP3Decoder),
+            )
+            assertTrue(data.isNotEmpty(), "$location should contain compressed data")
+            assertTrue(decoded != null && decoded.totalSamples > 0, "$location should decode to PCM samples")
+        }
     }
 
     private fun String.normalizedLines(): String = lines().joinToString("\n").trim()

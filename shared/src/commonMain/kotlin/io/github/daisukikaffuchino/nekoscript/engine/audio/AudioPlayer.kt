@@ -16,6 +16,9 @@ interface AudioPlayer {
 
     /** Stops the active voice clip. */
     suspend fun stopVoice()
+
+    /** Releases channels and decoded resources owned by this player. */
+    fun release() = Unit
 }
 
 /** Silent default used when a host does not configure audio playback. */

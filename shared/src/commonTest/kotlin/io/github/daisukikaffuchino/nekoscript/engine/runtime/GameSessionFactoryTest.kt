@@ -60,6 +60,22 @@ class GameSessionFactoryTest {
     }
 
     @Test
+    fun sessionReleasesItsAudioPlayer() = runTest {
+        val audioPlayer = RecordingAudioPlayer()
+        val session = factory(
+            files = mapOf(
+                "game.json" to validManifest,
+                "scripts/main.avg" to "say \"Ready\"",
+            ),
+            audioPlayerFactory = AudioPlayerFactory { audioPlayer },
+        ).create()
+
+        session.release()
+
+        assertTrue(audioPlayer.released)
+    }
+
+    @Test
     fun wrapsMissingManifestAndEntryScriptWithFileLocation() = runTest {
         val missingManifest = assertFailsWith<EngineException.ProjectLoadError> {
             factory(emptyMap()).create()
@@ -101,6 +117,26 @@ class GameSessionFactoryTest {
         assertIs<EngineException.UnknownCommand>(error.cause)
     }
 
+    @Test
+    fun validatesProjectReferencesBeforeCreatingRuntimeServices() = runTest {
+        var audioFactoryCalled = false
+        val error = assertFailsWith<EngineException.ProjectLoadError> {
+            factory(
+                files = mapOf(
+                    "game.json" to validManifest,
+                    "scripts/main.avg" to "play_se \"missing\"\nsay \"Ready\"",
+                ),
+                audioPlayerFactory = AudioPlayerFactory {
+                    audioFactoryCalled = true
+                    RecordingAudioPlayer()
+                },
+            ).create()
+        }
+
+        assertTrue(error.message.orEmpty().contains("sound effect 'missing'"))
+        assertEquals(false, audioFactoryCalled)
+    }
+
     private fun factory(
         files: Map<String, String>,
         onCreateSaveManager: (GameProject) -> Unit = {},
@@ -116,6 +152,7 @@ class GameSessionFactoryTest {
 
     private class RecordingAudioPlayer : AudioPlayer {
         val bgmIds = mutableListOf<String>()
+        var released = false
 
         override suspend fun playBgm(id: String, loop: Boolean) {
             bgmIds += id
@@ -124,6 +161,9 @@ class GameSessionFactoryTest {
         override suspend fun playSe(id: String) = Unit
         override suspend fun playVoice(id: String) = Unit
         override suspend fun stopVoice() = Unit
+        override fun release() {
+            released = true
+        }
     }
 
     private companion object {
@@ -143,7 +183,8 @@ class GameSessionFactoryTest {
                     "happy": "characters/yuki/happy.png"
                   }
                 }
-              }
+              },
+              "audio": { "bgm": { "theme": "audio/theme.mp3" } }
             }
         """.trimIndent()
     }

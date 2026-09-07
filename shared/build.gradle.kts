@@ -59,6 +59,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.korlibs.audio)
             implementation(libs.coil.compose)
         }
         commonTest.dependencies {

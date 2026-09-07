@@ -10,6 +10,7 @@ import io.github.daisukikaffuchino.nekoscript.engine.logging.NoOpEngineLogger
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProject
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectParser
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectSource
+import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectValidator
 import io.github.daisukikaffuchino.nekoscript.engine.save.SaveManager
 import io.github.daisukikaffuchino.nekoscript.engine.script.AvgScriptParser
 import io.github.daisukikaffuchino.nekoscript.engine.script.DefaultScriptRuntime
@@ -23,7 +24,11 @@ data class GameSession(
     val script: Script,
     val engine: GameEngine,
     val assetManager: AssetManager,
-)
+    private val audioPlayer: AudioPlayer,
+) {
+    /** Releases runtime services owned by this session. */
+    fun release() = audioPlayer.release()
+}
 
 /** Creates a [SaveManager] scoped to one [GameProject]. */
 fun interface SaveManagerFactory {
@@ -48,6 +53,7 @@ class GameSessionFactory(
     private val logger: EngineLogger = NoOpEngineLogger,
     private val projectParser: GameProjectParser = GameProjectParser(),
     private val scriptParser: ScriptParser = AvgScriptParser(),
+    private val projectValidator: GameProjectValidator = GameProjectValidator(),
 ) {
     /** Loads [manifestLocation] and creates a ready, not-yet-started session. */
     suspend fun create(manifestLocation: String = DEFAULT_MANIFEST_LOCATION): GameSession {
@@ -67,16 +73,20 @@ class GameSessionFactory(
                 error,
             )
         }
+        projectValidator.validate(project, script)
+        val assetManager = ManifestAssetManager(project)
+        val audioPlayer = audioPlayerFactory.create(project)
         val runtime = DefaultScriptRuntime(
             script = script,
-            audioPlayer = audioPlayerFactory.create(project),
+            audioPlayer = audioPlayer,
             logger = logger,
         )
         return GameSession(
             project = project,
             script = script,
             engine = GameEngine(runtime, saveManagerFactory.create(project)),
-            assetManager = ManifestAssetManager(project),
+            assetManager = assetManager,
+            audioPlayer = audioPlayer,
         )
     }
 

@@ -22,6 +22,12 @@ class ManifestAssetManager(
 
     override suspend fun loadCg(id: String): Asset = resolve("CG", id, project.cg[id])
 
+    override suspend fun loadBgm(id: String): Asset = resolve("BGM", id, project.audio.bgm[id])
+
+    override suspend fun loadSe(id: String): Asset = resolve("sound effect", id, project.audio.se[id])
+
+    override suspend fun loadVoice(id: String): Asset = resolve("voice", id, project.audio.voice[id])
+
     private fun resolve(type: String, id: String, location: String?): Asset =
         location?.let { Asset(id, it) } ?: notFound(type, id)
 

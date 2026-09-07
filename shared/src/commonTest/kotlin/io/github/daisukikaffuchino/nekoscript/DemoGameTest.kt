@@ -91,9 +91,9 @@ class DemoGameTest {
         assertEquals("backgrounds/classroom.jpg", session.assetManager.loadBackground("classroom").location)
         assertEquals("characters/yuki/normal.png", session.assetManager.loadCharacter("yuki", null).location)
         assertEquals("cg/club_photo.jpg", session.assetManager.loadCg("club_photo").location)
-        assertEquals("audio/bgm/morning_theme.ogg", project.audio.bgm["morning_theme"])
-        assertEquals("audio/se/school_bell.ogg", project.audio.se["school_bell"])
-        assertEquals("audio/voice/yuki_good_morning.ogg", project.audio.voice["yuki_good_morning"])
+        assertEquals("audio/bgm/morning_theme.mp3", project.audio.bgm["morning_theme"])
+        assertEquals("audio/se/school_bell.mp3", project.audio.se["school_bell"])
+        assertEquals("audio/voice/yuki_good_morning.mp3", project.audio.voice["yuki_good_morning"])
     }
 
     @Test
