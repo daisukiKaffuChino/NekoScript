@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
+import coil3.ImageLoader
+import coil3.compose.LocalPlatformContext
+import coil3.memory.MemoryCache
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameAction
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameSession
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameSessionFactory
@@ -29,6 +33,7 @@ import io.github.daisukikaffuchino.nekoscript.engine.save.InMemorySaveStorage
 import io.github.daisukikaffuchino.nekoscript.engine.save.JsonSaveManager
 import io.github.daisukikaffuchino.nekoscript.engine.save.SaveStorage
 import io.github.daisukikaffuchino.nekoscript.ui.GameScreen
+import io.github.daisukikaffuchino.nekoscript.ui.asset.ComposeResourceImageAssetResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -38,6 +43,20 @@ fun App(
     timestampProvider: () -> Long,
     projectSource: GameProjectSource = defaultProjectSource,
 ) {
+    val platformContext = LocalPlatformContext.current
+    val imageLoader = remember(platformContext, projectSource) {
+        ImageLoader.Builder(platformContext)
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizePercent(platformContext, IMAGE_MEMORY_CACHE_PERCENT)
+                    .build()
+            }
+            .build()
+    }
+    DisposableEffect(imageLoader) {
+        onDispose(imageLoader::shutdown)
+    }
+
     MaterialTheme {
         var session by remember(saveStorage, projectSource) { mutableStateOf<GameSession?>(null) }
         var loadError by remember(saveStorage, projectSource) { mutableStateOf<Throwable?>(null) }
@@ -62,12 +81,18 @@ fun App(
             loadError != null -> ProjectLoadErrorScreen(loadError!!)
             session == null -> ProjectLoadingScreen()
             else -> {
-                val engine = session!!.engine
+                val currentSession = session!!
+                val engine = currentSession.engine
                 val state by engine.viewState.collectAsState()
                 val scope = rememberCoroutineScope()
+                val imageAssets = remember(currentSession) {
+                    ComposeResourceImageAssetResolver(currentSession.assetManager)
+                }
                 LaunchedEffect(engine) { engine.dispatch(GameAction.Next) }
                 GameScreen(
                     state = state,
+                    imageAssets = imageAssets,
+                    imageLoader = imageLoader,
                     onAction = { action -> scope.launch { engine.dispatch(action) } },
                 )
             }
@@ -111,3 +136,5 @@ fun AppPreview() {
         timestampProvider = { 0L },
     )
 }
+
+private const val IMAGE_MEMORY_CACHE_PERCENT = 0.15

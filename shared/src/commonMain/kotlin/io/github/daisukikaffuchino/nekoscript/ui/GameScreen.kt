@@ -1,10 +1,10 @@
 package io.github.daisukikaffuchino.nekoscript.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,8 +34,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -43,13 +47,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.ImageLoader
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import coil3.size.Size
 import io.github.daisukikaffuchino.nekoscript.engine.character.CharacterPosition
 import io.github.daisukikaffuchino.nekoscript.engine.interaction.HotspotRegistry
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.BackgroundView
@@ -61,6 +73,8 @@ import io.github.daisukikaffuchino.nekoscript.engine.effect.TransitionType
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.ContainerPoint
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.GameViewport
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalPoint
+import io.github.daisukikaffuchino.nekoscript.ui.asset.ImageAssetResolver
+import io.github.daisukikaffuchino.nekoscript.ui.asset.ResolvedImageAsset
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -72,6 +86,8 @@ import kotlin.math.roundToInt
 @Composable
 fun GameScreen(
     state: GameViewState,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
     onAction: (GameAction) -> Unit,
     modifier: Modifier = Modifier,
     hotspotRegistry: HotspotRegistry? = null,
@@ -145,9 +161,9 @@ fun GameScreen(
                     }
                 },
             ) {
-                BackgroundLayer(state.background)
-                CharacterLayer(state.characters, effect)
-                CgLayer(state.cg?.assetId)
+                BackgroundLayer(state.background, imageAssets, imageLoader)
+                CharacterLayer(state.characters, effect, imageAssets, imageLoader)
+                CgLayer(state.cg?.assetId, imageAssets, imageLoader)
             }
 
             if (transition?.type == TransitionType.Flash && sceneProgress.value < 1f) {
@@ -365,67 +381,122 @@ private fun BacklogScreen(
 }
 
 @Composable
-private fun BackgroundLayer(background: BackgroundView?) {
+private fun BackgroundLayer(
+    background: BackgroundView?,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
+) {
+    val image by produceState<ResolvedImageAsset?>(
+        initialValue = null,
+        key1 = background?.assetId,
+        key2 = imageAssets,
+    ) {
+        value = background?.let { runCatching { imageAssets.resolveBackground(it.assetId) }.getOrNull() }
+    }
     val color = if (background == null) Color(0xFF17201D) else Color(0xFF61756D)
-    Box(Modifier.fillMaxSize().background(color))
+    Box(Modifier.fillMaxSize().background(color)) {
+        ResolvedAssetImage(
+            image = image,
+            imageLoader = imageLoader,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            contentDescription = background?.assetId?.let { "Background $it" },
+        )
+    }
 }
 
 @Composable
-private fun CharacterLayer(characters: List<CharacterView>, effect: VisualEffectView?) {
+private fun CharacterLayer(
+    characters: List<CharacterView>,
+    effect: VisualEffectView?,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
+) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         characters.forEach { character ->
-            val targetOffset = when (character.position) {
-                CharacterPosition.Left -> -maxWidth * 0.28f
-                CharacterPosition.Center -> 0.dp
-                CharacterPosition.Right -> maxWidth * 0.28f
-            }
-            val move = effect as? VisualEffectView.CharacterMove
-            val duration = if (move?.characterId == character.characterId) move.durationMillis else 0L
-            val horizontalOffset by animateDpAsState(
-                targetValue = targetOffset,
-                animationSpec = tween(duration.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()),
-                label = "character-position",
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .graphicsLayer { translationX = horizontalOffset.toPx() }
-                    .padding(bottom = 142.dp, start = 42.dp, end = 42.dp)
-                    .widthIn(min = 190.dp, max = 280.dp)
-                    .height(390.dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.22f))
-                    .background(Color(0x8F273630)),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    text = character.characterId.take(1).uppercase(),
-                    color = Color(0xFFE2B84B),
-                    fontSize = 72.sp,
-                    fontWeight = FontWeight.Light,
+            key(character.characterId) {
+                CharacterSprite(
+                    character = character,
+                    effect = effect,
+                    imageAssets = imageAssets,
+                    imageLoader = imageLoader,
+                    targetOffset = when (character.position) {
+                        CharacterPosition.Left -> -maxWidth * 0.28f
+                        CharacterPosition.Center -> 0.dp
+                        CharacterPosition.Right -> maxWidth * 0.28f
+                    },
                 )
-                Text(
-                    text = character.characterId,
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                character.expression?.let {
-                    Text(
-                        text = it,
-                        modifier = Modifier.padding(top = 5.dp),
-                        color = Color.White.copy(alpha = 0.66f),
-                        fontSize = 13.sp,
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun CgLayer(assetId: String?) {
+private fun CharacterSprite(
+    character: CharacterView,
+    effect: VisualEffectView?,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
+    targetOffset: androidx.compose.ui.unit.Dp,
+) {
+    val image by produceState<ResolvedImageAsset?>(
+        initialValue = null,
+        key1 = character.characterId,
+        key2 = character.expression,
+        key3 = imageAssets,
+    ) {
+        value = runCatching {
+            imageAssets.resolveCharacter(character.characterId, character.expression)
+        }.getOrNull()
+    }
+    var imageLoaded by remember(image) { mutableStateOf(false) }
+    val imageAlpha by animateFloatAsState(
+        targetValue = if (imageLoaded) 1f else 0f,
+        animationSpec = tween(CHARACTER_FADE_IN_MILLIS),
+        label = "character-image-alpha",
+    )
+    val move = effect as? VisualEffectView.CharacterMove
+    val duration = if (move?.characterId == character.characterId) move.durationMillis else 0L
+    val horizontalOffset by animateDpAsState(
+        targetValue = targetOffset,
+        animationSpec = tween(duration.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()),
+        label = "character-position",
+    )
+    Box(
+        modifier = Modifier.fillMaxSize().graphicsLayer { translationX = horizontalOffset.toPx() },
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        ResolvedAssetImage(
+            image = image,
+            imageLoader = imageLoader,
+            modifier = Modifier
+                .fillMaxWidth(CHARACTER_FRAME_WIDTH_FRACTION)
+                .fillMaxHeight(),
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopCenter,
+            contentDescription = "${character.characterId} ${character.expression.orEmpty()}".trim(),
+            decodeOriginalSize = true,
+            filterQuality = FilterQuality.High,
+            alpha = imageAlpha,
+            onSuccess = { imageLoaded = true },
+        )
+    }
+}
+
+@Composable
+private fun CgLayer(
+    assetId: String?,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
+) {
     if (assetId == null) return
+    val image by produceState<ResolvedImageAsset?>(
+        initialValue = null,
+        key1 = assetId,
+        key2 = imageAssets,
+    ) {
+        value = runCatching { imageAssets.resolveCg(assetId) }.getOrNull()
+    }
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xFF334C58)),
         contentAlignment = Alignment.Center,
@@ -435,6 +506,54 @@ private fun CgLayer(assetId: String?) {
             color = Color(0xFFE2B84B),
             fontSize = 64.sp,
             fontWeight = FontWeight.Light,
+        )
+        ResolvedAssetImage(
+            image = image,
+            imageLoader = imageLoader,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            contentDescription = "CG $assetId",
+        )
+    }
+}
+
+@Composable
+private fun ResolvedAssetImage(
+    image: ResolvedImageAsset?,
+    imageLoader: ImageLoader,
+    modifier: Modifier,
+    contentScale: ContentScale,
+    contentDescription: String?,
+    alignment: Alignment = Alignment.Center,
+    decodeOriginalSize: Boolean = false,
+    filterQuality: FilterQuality = FilterQuality.Low,
+    alpha: Float = 1f,
+    onSuccess: () -> Unit = {},
+) {
+    val platformContext = LocalPlatformContext.current
+    val request = remember(image, platformContext, decodeOriginalSize) {
+        image?.let {
+            ImageRequest.Builder(platformContext)
+                .data(it.data)
+                .memoryCacheKey(it.cacheKey)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .apply {
+                    if (decodeOriginalSize) size(Size.ORIGINAL)
+                }
+                .build()
+        }
+    }
+    if (request != null) {
+        AsyncImage(
+            model = request,
+            imageLoader = imageLoader,
+            contentDescription = contentDescription,
+            modifier = modifier,
+            contentScale = contentScale,
+            alignment = alignment,
+            filterQuality = filterQuality,
+            alpha = alpha,
+            onSuccess = { onSuccess() },
         )
     }
 }
@@ -474,6 +593,8 @@ private fun ChoicePanel(
 
 private const val AUTO_DELAY_MILLIS = 1_200L
 private const val SKIP_DELAY_MILLIS = 60L
+private const val CHARACTER_FADE_IN_MILLIS = 140
+private const val CHARACTER_FRAME_WIDTH_FRACTION = 0.46f
 
 private fun Modifier.logicalPointerInput(
     viewport: GameViewport,
