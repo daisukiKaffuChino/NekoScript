@@ -151,6 +151,13 @@ data class ViewportFit(
         y = (point.y - contentRect.top) / scale,
     )
 
+    /**
+     * Maps a host-container point into logical coordinates when it is inside the game content.
+     * Points in letterbox or pillarbox space return `null`.
+     */
+    fun toLogicalOrNull(point: ContainerPoint): LogicalPoint? =
+        if (contains(point)) toLogical(point) else null
+
     /** Returns whether a host point lies inside the fitted game content. */
     fun contains(point: ContainerPoint): Boolean =
         point.x >= contentRect.left && point.x <= contentRect.right &&

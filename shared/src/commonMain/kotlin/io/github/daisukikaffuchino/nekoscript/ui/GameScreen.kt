@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,8 +40,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,16 +56,25 @@ import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameAction
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameViewState
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.VisualEffectView
 import io.github.daisukikaffuchino.nekoscript.engine.effect.TransitionType
+import io.github.daisukikaffuchino.nekoscript.engine.viewport.ContainerPoint
+import io.github.daisukikaffuchino.nekoscript.engine.viewport.GameViewport
+import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalPoint
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-/** Renders the default AVG presentation and forwards all interaction as [GameAction]. */
+/**
+ * Renders the default AVG presentation and forwards game commands as [GameAction].
+ * [onLogicalPointerDown] receives pointer presses inside the game content in logical coordinates;
+ * presses on letterbox or pillarbox space are ignored.
+ */
 @Composable
 fun GameScreen(
     state: GameViewState,
     onAction: (GameAction) -> Unit,
     modifier: Modifier = Modifier,
+    onLogicalPointerDown: (LogicalPoint) -> Unit = {},
 ) {
+    val viewport = GameViewport.DEFAULT
     val sceneProgress = remember { Animatable(1f) }
     val shakeOffset = remember { Animatable(0f) }
     val effect = state.visualEffect
@@ -95,162 +108,175 @@ fun GameScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF17201D))
-            .safeContentPadding(),
+            .background(Color.Black)
+            .safeContentPadding()
+            .logicalPointerInput(
+                viewport = viewport,
+                enabled = !state.isBacklogOpen,
+                onLogicalPointerDown = onLogicalPointerDown,
+            ),
     ) {
-        val transition = effect as? VisualEffectView.Transition
         Box(
-            modifier = Modifier.fillMaxSize().graphicsLayer {
-                alpha = when (transition?.type) {
-                    TransitionType.Fade, TransitionType.CrossFade -> sceneProgress.value
-                    else -> 1f
-                }
-                translationX = shakeOffset.value + if (transition?.type == TransitionType.Slide) {
-                    (1f - sceneProgress.value) * 96f
-                } else {
-                    0f
-                }
-            },
+            modifier = Modifier
+                .align(Alignment.Center)
+                .aspectRatio(viewport.aspectRatio.toFloat())
+                .clipToBounds()
+                .background(Color(0xFF17201D)),
         ) {
-            BackgroundLayer(state.background)
-            CharacterLayer(state.characters, effect)
-            CgLayer(state.cg?.assetId)
-        }
-
-        if (transition?.type == TransitionType.Flash && sceneProgress.value < 1f) {
+            val transition = effect as? VisualEffectView.Transition
             Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = 1f - sceneProgress.value }
-                    .background(Color.White),
-            )
-        }
-
-        Row(
-            modifier = Modifier.align(Alignment.TopStart).padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(9.dp).clip(CircleShape).background(Color(0xFFE2B84B)))
-            Text(
-                text = "NekoScript",
-                modifier = Modifier.padding(start = 9.dp),
-                color = Color.White.copy(alpha = 0.9f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-
-        Row(
-            modifier = Modifier.align(Alignment.TopEnd).padding(horizontal = 14.dp, vertical = 7.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            TextButton(onClick = { onAction(GameAction.QuickSave) }) {
-                Text("Quick Save", color = Color.White, fontSize = 13.sp)
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = when (transition?.type) {
+                        TransitionType.Fade, TransitionType.CrossFade -> sceneProgress.value
+                        else -> 1f
+                    }
+                    translationX = shakeOffset.value + if (transition?.type == TransitionType.Slide) {
+                        (1f - sceneProgress.value) * 96f
+                    } else {
+                        0f
+                    }
+                },
+            ) {
+                BackgroundLayer(state.background)
+                CharacterLayer(state.characters, effect)
+                CgLayer(state.cg?.assetId)
             }
-            TextButton(onClick = { onAction(GameAction.QuickLoad) }) {
-                Text("Quick Load", color = Color.White, fontSize = 13.sp)
+
+            if (transition?.type == TransitionType.Flash && sceneProgress.value < 1f) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 1f - sceneProgress.value }
+                        .background(Color.White),
+                )
             }
-        }
 
-        UtilityPanel(
-            state = state,
-            onAction = onAction,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp),
-        )
+            Row(
+                modifier = Modifier.align(Alignment.TopStart).padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(9.dp).clip(CircleShape).background(Color(0xFFE2B84B)))
+                Text(
+                    text = "NekoScript",
+                    modifier = Modifier.padding(start = 9.dp),
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
 
-        if (state.choices.isNotEmpty()) {
-            ChoicePanel(
+            Row(
+                modifier = Modifier.align(Alignment.TopEnd).padding(horizontal = 14.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                TextButton(onClick = { onAction(GameAction.QuickSave) }) {
+                    Text("Quick Save", color = Color.White, fontSize = 13.sp)
+                }
+                TextButton(onClick = { onAction(GameAction.QuickLoad) }) {
+                    Text("Quick Load", color = Color.White, fontSize = 13.sp)
+                }
+            }
+
+            UtilityPanel(
                 state = state,
                 onAction = onAction,
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp),
             )
-        }
 
-        state.dialogue?.let { dialogue ->
-            var visibleCharacters by remember(dialogue.text, state.history.size) {
-                mutableIntStateOf(if (state.isSkipMode) dialogue.text.length else 0)
+            if (state.choices.isNotEmpty()) {
+                ChoicePanel(
+                    state = state,
+                    onAction = onAction,
+                    modifier = Modifier.align(Alignment.Center),
+                )
             }
 
-            LaunchedEffect(dialogue.text, state.history.size, state.textSpeedMillis, state.isSkipMode) {
-                if (state.isSkipMode || state.textSpeedMillis == 0) {
-                    visibleCharacters = dialogue.text.length
-                } else {
-                    while (visibleCharacters < dialogue.text.length) {
-                        delay(state.textSpeedMillis.toLong())
-                        visibleCharacters++
-                    }
+            state.dialogue?.let { dialogue ->
+                var visibleCharacters by remember(dialogue.text, state.history.size) {
+                    mutableIntStateOf(if (state.isSkipMode) dialogue.text.length else 0)
                 }
-            }
 
-            LaunchedEffect(
-                dialogue.text,
-                state.history.size,
-                visibleCharacters,
-                state.isAutoMode,
-                state.isSkipMode,
-                state.choices.size,
-                state.isBacklogOpen,
-            ) {
-                val isComplete = visibleCharacters >= dialogue.text.length
-                if (
-                    isComplete &&
-                    state.choices.isEmpty() &&
-                    !state.isBacklogOpen &&
-                    (state.isAutoMode || state.isSkipMode)
-                ) {
-                    delay(if (state.isSkipMode) SKIP_DELAY_MILLIS else AUTO_DELAY_MILLIS)
-                    onAction(GameAction.Next)
-                }
-            }
-
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .clickable(enabled = state.choices.isEmpty()) {
-                        if (visibleCharacters < dialogue.text.length) {
-                            visibleCharacters = dialogue.text.length
-                        } else {
-                            onAction(GameAction.Next)
+                LaunchedEffect(dialogue.text, state.history.size, state.textSpeedMillis, state.isSkipMode) {
+                    if (state.isSkipMode || state.textSpeedMillis == 0) {
+                        visibleCharacters = dialogue.text.length
+                    } else {
+                        while (visibleCharacters < dialogue.text.length) {
+                            delay(state.textSpeedMillis.toLong())
+                            visibleCharacters++
                         }
-                    },
-                color = Color(0xED101513),
-                contentColor = Color.White,
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 20.dp),
-                ) {
-                    dialogue.speaker?.takeIf(String::isNotBlank)?.let { speaker ->
-                        Text(
-                            text = speaker,
-                            color = Color(0xFFE2B84B),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.height(7.dp))
                     }
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = dialogue.text.take(visibleCharacters),
-                            modifier = Modifier.weight(1f),
-                            color = Color(0xFFF4F5F2),
-                            fontSize = 19.sp,
-                            lineHeight = 30.sp,
-                        )
-                        Text(
-                            text = ">",
-                            modifier = Modifier.padding(start = 20.dp),
-                            color = Color(0xFFE2B84B),
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
+                }
+
+                LaunchedEffect(
+                    dialogue.text,
+                    state.history.size,
+                    visibleCharacters,
+                    state.isAutoMode,
+                    state.isSkipMode,
+                    state.choices.size,
+                    state.isBacklogOpen,
+                ) {
+                    val isComplete = visibleCharacters >= dialogue.text.length
+                    if (
+                        isComplete &&
+                        state.choices.isEmpty() &&
+                        !state.isBacklogOpen &&
+                        (state.isAutoMode || state.isSkipMode)
+                    ) {
+                        delay(if (state.isSkipMode) SKIP_DELAY_MILLIS else AUTO_DELAY_MILLIS)
+                        onAction(GameAction.Next)
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .clickable(enabled = state.choices.isEmpty()) {
+                            if (visibleCharacters < dialogue.text.length) {
+                                visibleCharacters = dialogue.text.length
+                            } else {
+                                onAction(GameAction.Next)
+                            }
+                        },
+                    color = Color(0xED101513),
+                    contentColor = Color.White,
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 20.dp),
+                    ) {
+                        dialogue.speaker?.takeIf(String::isNotBlank)?.let { speaker ->
+                            Text(
+                                text = speaker,
+                                color = Color(0xFFE2B84B),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.height(7.dp))
+                        }
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = dialogue.text.take(visibleCharacters),
+                                modifier = Modifier.weight(1f),
+                                color = Color(0xFFF4F5F2),
+                                fontSize = 19.sp,
+                                lineHeight = 30.sp,
+                            )
+                            Text(
+                                text = ">",
+                                modifier = Modifier.padding(start = 20.dp),
+                                color = Color(0xFFE2B84B),
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        if (state.isBacklogOpen) {
-            BacklogScreen(state, onAction)
+            if (state.isBacklogOpen) {
+                BacklogScreen(state, onAction)
+            }
         }
     }
 }
@@ -440,3 +466,29 @@ private fun ChoicePanel(
 
 private const val AUTO_DELAY_MILLIS = 1_200L
 private const val SKIP_DELAY_MILLIS = 60L
+
+private fun Modifier.logicalPointerInput(
+    viewport: GameViewport,
+    enabled: Boolean,
+    onLogicalPointerDown: (LogicalPoint) -> Unit,
+): Modifier {
+    if (!enabled) return this
+
+    return pointerInput(viewport, onLogicalPointerDown) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val down = event.changes.firstOrNull { change ->
+                    change.pressed && !change.previousPressed
+                } ?: continue
+                val fit = viewport.fit(size.width.toDouble(), size.height.toDouble())
+                fit.toLogicalOrNull(
+                    ContainerPoint(
+                        x = down.position.x.toDouble(),
+                        y = down.position.y.toDouble(),
+                    ),
+                )?.let(onLogicalPointerDown)
+            }
+        }
+    }
+}

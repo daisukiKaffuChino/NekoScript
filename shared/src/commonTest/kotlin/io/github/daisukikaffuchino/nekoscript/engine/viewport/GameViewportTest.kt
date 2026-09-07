@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class GameViewportTest {
@@ -78,6 +79,113 @@ class GameViewportTest {
         val roundTrip = fit.toLogical(container)
         assertClose(logical.x, roundTrip.x)
         assertClose(logical.y, roundTrip.y)
+    }
+
+    @Test
+    fun mapsSixteenByNineContainersToTheFullLogicalCanvas() {
+        listOf(
+            ContainerSize(1_280.0, 720.0),
+            ContainerSize(1_920.0, 1_080.0),
+            ContainerSize(2_560.0, 1_440.0),
+        ).forEach { container ->
+            val fit = GameViewport.DEFAULT.fit(container)
+
+            assertPointClose(LogicalPoint(0.0, 0.0), fit.toLogicalOrNull(ContainerPoint(0.0, 0.0)))
+            assertPointClose(
+                LogicalPoint(960.0, 540.0),
+                fit.toLogicalOrNull(ContainerPoint(container.width / 2.0, container.height / 2.0)),
+            )
+            assertPointClose(
+                LogicalPoint(1_920.0, 1_080.0),
+                fit.toLogicalOrNull(ContainerPoint(container.width, container.height)),
+            )
+        }
+    }
+
+    @Test
+    fun mapsFourByThreeContentAndRejectsTopAndBottomLetterboxInput() {
+        listOf(
+            ContainerSize(1_024.0, 768.0),
+            ContainerSize(1_600.0, 1_200.0),
+        ).forEach { container ->
+            val fit = GameViewport.DEFAULT.fit(container)
+            val left = fit.contentRect.left
+            val top = fit.contentRect.top
+            val right = fit.contentRect.right
+            val bottom = fit.contentRect.bottom
+
+            assertPointClose(LogicalPoint(0.0, 0.0), fit.toLogicalOrNull(ContainerPoint(left, top)))
+            assertPointClose(
+                LogicalPoint(960.0, 540.0),
+                fit.toLogicalOrNull(ContainerPoint(container.width / 2.0, container.height / 2.0)),
+            )
+            assertPointClose(LogicalPoint(1_920.0, 1_080.0), fit.toLogicalOrNull(ContainerPoint(right, bottom)))
+            assertNull(fit.toLogicalOrNull(ContainerPoint(container.width / 2.0, top - 1.0)))
+            assertNull(fit.toLogicalOrNull(ContainerPoint(container.width / 2.0, bottom + 1.0)))
+        }
+    }
+
+    @Test
+    fun mapsSixteenByTenContentAndRejectsVerticalLetterboxInput() {
+        listOf(
+            ContainerSize(1_280.0, 800.0),
+            ContainerSize(1_920.0, 1_200.0),
+        ).forEach { container ->
+            assertContentBoundariesAndOutsideBars(GameViewport.DEFAULT.fit(container), verticalBars = true)
+        }
+    }
+
+    @Test
+    fun mapsUltraWideContentAndRejectsHorizontalPillarboxInput() {
+        listOf(
+            ContainerSize(2_560.0, 1_080.0),
+            ContainerSize(3_440.0, 1_440.0),
+        ).forEach { container ->
+            assertContentBoundariesAndOutsideBars(GameViewport.DEFAULT.fit(container), verticalBars = false)
+        }
+    }
+
+    @Test
+    fun mapsUltraTallContentAndRejectsInputOutsideItsVerticalBounds() {
+        val fit = GameViewport.DEFAULT.fit(1_080.0, 2_400.0)
+
+        assertClose(0.0, fit.contentRect.left)
+        assertClose(896.25, fit.contentRect.top)
+        assertClose(1_080.0, fit.contentRect.right)
+        assertClose(1_503.75, fit.contentRect.bottom)
+        assertContentBoundariesAndOutsideBars(fit, verticalBars = true)
+    }
+
+    private fun assertContentBoundariesAndOutsideBars(
+        fit: ViewportFit,
+        verticalBars: Boolean,
+    ) {
+        val rect = fit.contentRect
+        assertPointClose(LogicalPoint(0.0, 0.0), fit.toLogicalOrNull(ContainerPoint(rect.left, rect.top)))
+        assertPointClose(
+            LogicalPoint(960.0, 540.0),
+            fit.toLogicalOrNull(ContainerPoint((rect.left + rect.right) / 2.0, (rect.top + rect.bottom) / 2.0)),
+        )
+        assertPointClose(
+            LogicalPoint(1_920.0, 1_080.0),
+            fit.toLogicalOrNull(ContainerPoint(rect.right, rect.bottom)),
+        )
+
+        if (verticalBars) {
+            val centerX = (rect.left + rect.right) / 2.0
+            assertNull(fit.toLogicalOrNull(ContainerPoint(centerX, rect.top - 1.0)))
+            assertNull(fit.toLogicalOrNull(ContainerPoint(centerX, rect.bottom + 1.0)))
+        } else {
+            val centerY = (rect.top + rect.bottom) / 2.0
+            assertNull(fit.toLogicalOrNull(ContainerPoint(rect.left - 1.0, centerY)))
+            assertNull(fit.toLogicalOrNull(ContainerPoint(rect.right + 1.0, centerY)))
+        }
+    }
+
+    private fun assertPointClose(expected: LogicalPoint, actual: LogicalPoint?) {
+        requireNotNull(actual) { "Expected $expected, but point was outside the game content." }
+        assertClose(expected.x, actual.x)
+        assertClose(expected.y, actual.y)
     }
 
     private fun assertClose(expected: Double, actual: Double) {

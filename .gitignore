@@ -72,7 +72,8 @@ Thumbs.db
 /app/build/outputs/apk/debug/
 
 # 忽略参考代码
-dev/
+docs/
+AGENTS.md
 # Xcode / iOS 壳
 xcuserdata/
 **/xcshareddata/WorkspaceSettings.xcsettings
