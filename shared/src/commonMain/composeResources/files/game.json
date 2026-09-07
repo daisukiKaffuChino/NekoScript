@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "entryScript": "scripts/main.avg",
   "backgrounds": {
-    "school_day": "backgrounds/school_day.jpg"
+    "school_day": "backgrounds/school_day.jpg",
+    "classroom": "backgrounds/classroom.jpg"
   },
   "characters": {
     "yuki": {
@@ -15,6 +16,21 @@
         "happy": "characters/yuki/happy.png",
         "surprised": "characters/yuki/surprised.png"
       }
+    }
+  },
+  "cg": {
+    "club_photo": "cg/club_photo.jpg"
+  },
+  "audio": {
+    "bgm": {
+      "morning_theme": "audio/bgm/morning_theme.ogg"
+    },
+    "se": {
+      "school_bell": "audio/se/school_bell.ogg",
+      "class_bell": "audio/se/class_bell.ogg"
+    },
+    "voice": {
+      "yuki_good_morning": "audio/voice/yuki_good_morning.ogg"
     }
   }
 }
