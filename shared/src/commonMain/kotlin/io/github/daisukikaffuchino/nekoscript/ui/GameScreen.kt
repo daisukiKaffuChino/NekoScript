@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.daisukikaffuchino.nekoscript.engine.character.CharacterPosition
+import io.github.daisukikaffuchino.nekoscript.engine.interaction.HotspotRegistry
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.BackgroundView
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.CharacterView
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameAction
@@ -64,17 +66,19 @@ import kotlin.math.roundToInt
 
 /**
  * Renders the default AVG presentation and forwards game commands as [GameAction].
- * [onLogicalPointerDown] receives pointer presses inside the game content in logical coordinates;
- * presses on letterbox or pillarbox space are ignored.
+ * [hotspotRegistry] receives unconsumed pointer presses inside the game content. Presses on
+ * letterbox, pillarbox, or Compose controls do not activate scene hotspots.
  */
 @Composable
 fun GameScreen(
     state: GameViewState,
     onAction: (GameAction) -> Unit,
     modifier: Modifier = Modifier,
-    onLogicalPointerDown: (LogicalPoint) -> Unit = {},
+    hotspotRegistry: HotspotRegistry? = null,
 ) {
     val viewport = GameViewport.DEFAULT
+    val currentHotspotRegistry = rememberUpdatedState(hotspotRegistry)
+    val currentOnAction = rememberUpdatedState(onAction)
     val sceneProgress = remember { Animatable(1f) }
     val shakeOffset = remember { Animatable(0f) }
     val effect = state.visualEffect
@@ -112,8 +116,12 @@ fun GameScreen(
             .safeContentPadding()
             .logicalPointerInput(
                 viewport = viewport,
-                enabled = !state.isBacklogOpen,
-                onLogicalPointerDown = onLogicalPointerDown,
+                enabled = !state.isBacklogOpen && hotspotRegistry != null,
+                onLogicalPointerDown = { point ->
+                    currentHotspotRegistry.value?.hitTest(point)?.let { hotspot ->
+                        currentOnAction.value(GameAction.ActivateHotspot(hotspot.id))
+                    }
+                },
             ),
     ) {
         Box(
@@ -474,12 +482,12 @@ private fun Modifier.logicalPointerInput(
 ): Modifier {
     if (!enabled) return this
 
-    return pointerInput(viewport, onLogicalPointerDown) {
+    return pointerInput(viewport) {
         awaitPointerEventScope {
             while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val event = awaitPointerEvent(PointerEventPass.Final)
                 val down = event.changes.firstOrNull { change ->
-                    change.pressed && !change.previousPressed
+                    change.pressed && !change.previousPressed && !change.isConsumed
                 } ?: continue
                 val fit = viewport.fit(size.width.toDouble(), size.height.toDouble())
                 fit.toLogicalOrNull(

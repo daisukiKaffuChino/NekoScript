@@ -46,6 +46,17 @@ sealed interface GameAction {
         }
     }
 
+    /**
+     * Reports activation of a logical scene hotspot.
+     *
+     * Binding the hotspot to script behavior is intentionally outside the first hotspot phase.
+     */
+    data class ActivateHotspot(val hotspotId: String) : GameAction {
+        init {
+            require(hotspotId.isNotBlank()) { "Hotspot id must not be blank." }
+        }
+    }
+
     companion object {
         /** Upper bound accepted by [SetTextSpeed]. */
         const val MAX_TEXT_DELAY_MILLIS: Int = 250

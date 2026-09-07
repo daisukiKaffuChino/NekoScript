@@ -47,6 +47,8 @@ class GameEngine(
                 }
                 is GameAction.SetTextSpeed -> textSpeedMillis = action.millisPerCharacter
                 is GameAction.CompleteVisualEffect -> runtime.completeVisualEffect(action.sequence)
+                // Recognition is complete here; Script/Scene behavior binding is a later phase.
+                is GameAction.ActivateHotspot -> Unit
             }
         } finally {
             mutableViewState.value = currentViewState()

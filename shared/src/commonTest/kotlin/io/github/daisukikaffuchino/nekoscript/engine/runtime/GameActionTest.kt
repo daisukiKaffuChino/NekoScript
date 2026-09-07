@@ -33,4 +33,10 @@ class GameActionTest {
         assertEquals(2L, GameAction.CompleteVisualEffect(2).sequence)
         assertFailsWith<IllegalArgumentException> { GameAction.CompleteVisualEffect(0) }
     }
+
+    @Test
+    fun hotspotActivationCarriesOnlyAValidatedLogicalId() {
+        assertEquals("door", GameAction.ActivateHotspot("door").hotspotId)
+        assertFailsWith<IllegalArgumentException> { GameAction.ActivateHotspot(" ") }
+    }
 }

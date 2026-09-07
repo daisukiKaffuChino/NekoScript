@@ -77,6 +77,7 @@ class GameEngineTest {
         engine.dispatch(GameAction.ToggleAuto)
         engine.dispatch(GameAction.Skip)
         engine.dispatch(GameAction.SetTextSpeed(70))
+        engine.dispatch(GameAction.ActivateHotspot("door"))
 
         val state = engine.viewState.value
         assertTrue(state.isBacklogOpen)
