@@ -45,9 +45,10 @@ class GameProjectValidator {
             is Command.HideCharacter -> requireCharacter(project, command.characterId)
             is Command.MoveCharacter -> requireCharacter(project, command.characterId)
             is Command.ShowCg -> requireAsset(project, "CG", command.cgId, project.cg)
-            is Command.PlayBgm -> requireAsset(project, "BGM", command.audioId, project.audio.bgm)
-            is Command.PlaySe -> requireAsset(project, "sound effect", command.audioId, project.audio.se)
-            is Command.PlayVoice -> requireAsset(project, "voice", command.audioId, project.audio.voice)
+            is Command.PlayBgm,
+            is Command.PlaySe,
+            is Command.PlayVoice,
+            -> Unit
             is Command.Jump -> if (command.label !in script.labels) {
                 invalid(project, "label '${command.label}' is not declared in script '${script.id}'")
             }

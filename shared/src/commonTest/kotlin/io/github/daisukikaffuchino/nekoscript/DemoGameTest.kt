@@ -13,16 +13,16 @@ import io.github.daisukikaffuchino.nekoscript.engine.save.InMemorySaveStorage
 import io.github.daisukikaffuchino.nekoscript.engine.save.JsonSaveManager
 import io.github.daisukikaffuchino.nekoscript.engine.script.AvgScriptParser
 import io.github.daisukikaffuchino.nekoscript.engine.script.ScriptNode
+import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalPoint
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalPoint
 
 class DemoGameTest {
     @Test
-    fun embeddedProjectRunsTheClassroomRouteThroughReunionToEnding() = runTest {
+    fun embeddedProjectRunsTheClassroomRouteThroughCorridorToEnding() = runTest {
         val session = createSession()
 
         session.advanceUntilChoice()
@@ -30,12 +30,12 @@ class DemoGameTest {
         assertEquals(
             listOf(
                 "清晨的校门口，阳光刚刚越过教学楼。",
-                "你终于来了，我还以为要迟到了。",
+                "你来得真准时。",
                 "我就知道你会卡着铃声出现，和小时候一模一样。",
                 "站在另一边的是葵，从小和我一起长大的青梅竹马。",
                 "怎么，见到我太惊讶，连招呼都忘了？",
-                "早上好。葵也来了，那我们一起进去吧？",
-                "可以，不过谁最后进教室，谁就负责放学后的饮料。",
+                "早上好。今天看起来会很忙。",
+                "那就更不能迟到了，走吧，谁先到教室谁算赢。",
                 "两个人同时看向我，看来这个早晨得先做个决定。",
             ),
             session.engine.viewState.value.history.map { it.text },
@@ -48,7 +48,7 @@ class DemoGameTest {
         assertNull(session.engine.viewState.value.debug?.textId)
 
         session.engine.dispatch(GameAction.SelectChoice(0))
-        assertEquals("谢谢，资料有点多。幸好有你帮忙。", session.engine.viewState.value.dialogue?.text)
+        assertEquals("那我来拿资料吧，省得你又把纸袋晃散。", session.engine.viewState.value.dialogue?.text)
         assertTrue(session.engine.viewState.value.debug?.textId.orEmpty().startsWith("scripts/main.avg:node_"))
         assertEquals(
             mapOf("yuki" to "happy", "aoi" to "teasing"),
@@ -62,19 +62,27 @@ class DemoGameTest {
         session.engine.dispatch(GameAction.Next)
         assertEquals("club_photo", session.engine.viewState.value.cg?.assetId)
         session.completePendingEffect()
-        assertEquals("桌面上放着一张昨天拍下的社团合照。", session.engine.viewState.value.dialogue?.text)
+        assertEquals("桌面上放着昨天拍下的社团合照。", session.engine.viewState.value.dialogue?.text)
+
+        session.advanceUntilDialogue("课间的教室外走廊安静下来，只剩窗边掠过的风声。")
+        assertEquals("corridor", session.engine.viewState.value.background?.assetId)
+        assertEquals(setOf("yuki"), session.engine.viewState.value.characters.mapTo(mutableSetOf()) { it.characterId })
+        assertNull(session.engine.viewState.value.dialogue?.speaker)
 
         session.engine.dispatch(GameAction.Next)
-        assertNull(session.engine.viewState.value.cg)
-        session.completePendingEffect()
-        assertEquals(2, session.engine.viewState.value.characters.size)
-        assertEquals("放学后，也别忘了来活动室。", session.engine.viewState.value.dialogue?.text)
+        assertEquals("……终于能喘口气了。", session.engine.viewState.value.dialogue?.text)
+        assertEquals("悠希", session.engine.viewState.value.dialogue?.speaker)
 
-        session.advanceUntilDialogue("别忘了饮料，我可记得很清楚。")
-        assertEquals("aoi", session.engine.viewState.value.characters.single().characterId)
         session.engine.dispatch(GameAction.Next)
+        assertEquals("一个人躲在这里发呆？", session.engine.viewState.value.dialogue?.text)
+        assertEquals("葵", session.engine.viewState.value.dialogue?.speaker)
+        assertEquals(
+            mapOf("yuki" to "normal", "aoi" to "happy"),
+            session.engine.viewState.value.characters.associate { it.characterId to it.expression },
+        )
+
+        session.advanceUntilDialogue("等我回过神来，走廊里只剩下被风掀起的纸页。")
         assertTrue(session.engine.viewState.value.characters.isEmpty())
-        assertEquals("晨光落在空下来的走道上，平常的一天也有了值得期待的结尾。", session.engine.viewState.value.dialogue?.text)
         session.engine.dispatch(GameAction.Next)
         assertEquals("NekoScript Demo  完", session.engine.viewState.value.dialogue?.text)
         session.engine.dispatch(GameAction.Next)
@@ -87,7 +95,7 @@ class DemoGameTest {
 
         session.advanceUntilChoice()
         session.engine.dispatch(GameAction.SelectChoice(1))
-        assertEquals("我是在救我们三个人不被老师记迟到，这叫经验。", session.engine.viewState.value.dialogue?.text)
+        assertEquals("行啊，敢选我，那放学后的饮料可就先记在你账上了。", session.engine.viewState.value.dialogue?.text)
         assertEquals(
             mapOf("yuki" to "surprised", "aoi" to "happy"),
             session.engine.viewState.value.characters.associate { it.characterId to it.expression },
@@ -96,10 +104,9 @@ class DemoGameTest {
         session.engine.dispatch(GameAction.Next)
         assertTrue(session.engine.viewState.value.visualEffect is VisualEffectView.Shake)
         session.completePendingEffect()
-        assertEquals("明明是你刚才差点撞上校门，还说得这么理直气壮。", session.engine.viewState.value.dialogue?.text)
-
-        session.advanceUntilDialogue("上课铃响起时，我们刚好在座位上坐下。")
-        assertEquals("classroom", session.engine.viewState.value.background?.assetId)
+        assertEquals("你这算是威胁吗？", session.engine.viewState.value.dialogue?.text)
+        session.advanceUntilDialogue("课间的教室外走廊安静下来，只剩窗边掠过的风声。")
+        assertEquals("corridor", session.engine.viewState.value.background?.assetId)
     }
 
     @Test
@@ -113,6 +120,7 @@ class DemoGameTest {
         assertEquals(1080, project.viewport.height)
         assertEquals("backgrounds/school_day.jpg", session.assetManager.loadBackground("school_day").location)
         assertEquals("backgrounds/classroom.jpg", session.assetManager.loadBackground("classroom").location)
+        assertEquals("backgrounds/corridor.jpg", session.assetManager.loadBackground("corridor").location)
         assertEquals("characters/yuki/normal.png", session.assetManager.loadCharacter("yuki", null).location)
         assertEquals("characters/aoi/normal.png", session.assetManager.loadCharacter("aoi", null).location)
         assertEquals("characters/aoi/teasing.png", session.assetManager.loadCharacter("aoi", "teasing").location)
@@ -121,7 +129,7 @@ class DemoGameTest {
         assertEquals("audio/se/school_bell.mp3", project.audio.se["school_bell"])
         assertEquals("audio/se/class_bell.mp3", project.audio.se["class_bell"])
         assertEquals("audio/voice/yuki_1.mp3", project.audio.voice["yuki_1"])
-        assertEquals(13, project.audio.voice.size)
+        assertEquals(17, project.audio.voice.size)
         assertTrue(project.debuggable)
         assertTrue(project.audio.voice.all { (id, location) ->
             id.matches(Regex("(yuki|aoi)_[0-9]+")) && location == "audio/voice/$id.mp3"
@@ -171,7 +179,7 @@ class DemoGameTest {
     }
 
     @Test
-    fun onlyCharacterDialogueHasADeclaredVoiceCueImmediatelyBeforeIt() = runTest {
+    fun onlyAoiDialogueHasADeclaredVoiceCueImmediatelyBeforeItAndYukiStaysSilent() = runTest {
         val project = GameProjectParser().parse(demoProjectSource.readText("game.json"))
         val script = AvgScriptParser().parse(
             "scripts/main.avg",
@@ -182,16 +190,20 @@ class DemoGameTest {
         commands.forEachIndexed { index, command ->
             if (command is Command.Say) {
                 val voice = commands.getOrNull(index - 1) as? Command.PlayVoice
-                if (command.speaker == null) {
-                    assertNull(voice, "Narration '${command.text}' must not have a voice cue")
-                } else {
-                    assertTrue(voice != null, "Character dialogue '${command.text}' must have a voice cue")
-                    assertTrue(voice.audioId in project.audio.voice, "Voice '${voice.audioId}' must be declared")
+                when (command.speaker) {
+                    null -> assertNull(voice, "Narration '${command.text}' must not have a voice cue")
+                    "悠希" -> assertNull(voice, "Male protagonist dialogue '${command.text}' must not have a voice cue")
+                    "葵" -> {
+                        assertTrue(voice != null, "Aoi dialogue '${command.text}' must have a voice cue")
+                        assertTrue(voice.audioId in project.audio.voice, "Voice '${voice.audioId}' must be declared")
+                    }
+                    else -> assertNull(voice, "Unexpected dialogue speaker '${command.speaker}' should not be voiced")
                 }
             }
         }
+        assertTrue(commands.filterIsInstance<Command.PlayVoice>().all { it.audioId.startsWith("aoi_") })
         assertEquals(
-            commands.filterIsInstance<Command.Say>().count { it.speaker != null },
+            commands.filterIsInstance<Command.Say>().count { it.speaker == "葵" },
             commands.count { it is Command.PlayVoice },
         )
         assertTrue(project.audio.voice.keys.none { it.startsWith("narrator_") })
@@ -201,19 +213,21 @@ class DemoGameTest {
     fun demoContainsNarrationAndAOneCharacterScene() = runTest {
         val session = createSession()
 
-        session.advanceUntilDialogue("站在另一边的是葵，从小和我一起长大的青梅竹马。")
-        assertNull(session.engine.viewState.value.dialogue?.speaker)
-        assertEquals(setOf("yuki", "aoi"), session.engine.viewState.value.characters.mapTo(mutableSetOf()) { it.characterId })
-
         session.advanceUntilChoice()
         session.engine.dispatch(GameAction.SelectChoice(0))
-        session.advanceUntilDialogue("别忘了饮料，我可记得很清楚。")
-        assertEquals("葵", session.engine.viewState.value.dialogue?.speaker)
-        assertEquals("aoi", session.engine.viewState.value.characters.single().characterId)
+        session.advanceUntilDialogue("课间的教室外走廊安静下来，只剩窗边掠过的风声。")
+        assertNull(session.engine.viewState.value.dialogue?.speaker)
+        assertEquals("corridor", session.engine.viewState.value.background?.assetId)
+        assertEquals(setOf("yuki"), session.engine.viewState.value.characters.mapTo(mutableSetOf()) { it.characterId })
 
         session.engine.dispatch(GameAction.Next)
-        assertTrue(session.engine.viewState.value.characters.isEmpty())
-        assertNull(session.engine.viewState.value.dialogue?.speaker)
+        assertEquals("……终于能喘口气了。", session.engine.viewState.value.dialogue?.text)
+        assertEquals("悠希", session.engine.viewState.value.dialogue?.speaker)
+
+        session.engine.dispatch(GameAction.Next)
+        assertEquals("一个人躲在这里发呆？", session.engine.viewState.value.dialogue?.text)
+        assertEquals("葵", session.engine.viewState.value.dialogue?.speaker)
+        assertEquals("aoi", session.engine.viewState.value.characters.single { it.characterId == "aoi" }.characterId)
     }
 
     @Test

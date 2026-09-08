@@ -31,6 +31,8 @@ class RecoveringAudioPlayer(
             block()
         } catch (error: EngineException.AssetLoadError) {
             assetLoadMonitor.report(error)
+        } catch (error: EngineException.AssetNotFound) {
+            assetLoadMonitor.report(error)
         }
     }
 }

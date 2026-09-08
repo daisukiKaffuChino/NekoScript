@@ -10,7 +10,8 @@
   },
   "backgrounds": {
     "school_day": "backgrounds/school_day.jpg",
-    "classroom": "backgrounds/classroom.jpg"
+    "classroom": "backgrounds/classroom.jpg",
+    "corridor": "backgrounds/corridor.jpg"
   },
   "characters": {
     "yuki": {

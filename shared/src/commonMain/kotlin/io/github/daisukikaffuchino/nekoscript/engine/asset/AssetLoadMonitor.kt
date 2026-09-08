@@ -30,6 +30,17 @@ class AssetLoadMonitor {
         }
     }
 
+    fun report(error: EngineException.AssetNotFound) {
+        val issue = AssetLoadIssue(
+            assetType = error.assetType,
+            assetId = error.assetId,
+            location = error.location,
+        )
+        mutableIssues.update { current ->
+            if (issue in current) current else current + issue
+        }
+    }
+
     fun markLoaded(assetType: String, assetId: String, location: String) {
         mutableIssues.update { current ->
             current.filterNot { issue ->

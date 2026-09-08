@@ -24,7 +24,12 @@ sealed class EngineException(message: String, cause: Throwable? = null) : Except
     class ProjectLoadError(message: String, cause: Throwable? = null) : EngineException(message, cause)
 
     /** Reports a project asset that could not be resolved. */
-    class AssetNotFound(message: String) : EngineException(message)
+    class AssetNotFound(
+        val assetType: String,
+        val assetId: String,
+        val location: String,
+        message: String,
+    ) : EngineException(message)
 
     /** Reports a project asset that resolved but could not be loaded or decoded. */
     class AssetLoadError(

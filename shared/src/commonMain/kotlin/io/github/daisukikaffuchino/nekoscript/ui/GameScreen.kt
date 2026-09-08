@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
@@ -60,6 +62,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -603,6 +606,8 @@ private fun BacklogScreen(
     state: GameViewState,
     onAction: (GameAction) -> Unit,
 ) {
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFA101513),
@@ -629,36 +634,118 @@ private fun BacklogScreen(
                         Text("Close")
                     }
                 }
-                Column(
-                    modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    state.history.forEach { entry ->
-                        Column(Modifier.fillMaxWidth()) {
-                            val isNarration = entry.speaker.isNullOrBlank()
-                            Surface(
-                                color = if (isNarration) Color(0xFF28322E) else Color(0xFF3B3020),
-                                contentColor = if (isNarration) Color(0xFFD8DED9) else Color(0xFFE2B84B),
-                                shape = MaterialTheme.shapes.extraSmall,
-                            ) {
+                    Column(
+                        modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(scrollState),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        state.history.forEachIndexed { index, entry ->
+                            if (index > 0) {
+                                val previous = state.history[index - 1]
+                                val shouldSeparate = previous.speaker.isNullOrBlank() != entry.speaker.isNullOrBlank() ||
+                                    previous.speaker != entry.speaker
+                                if (shouldSeparate) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(1.dp)
+                                            .background(Color.White.copy(alpha = 0.12f)),
+                                    )
+                                }
+                            }
+                            Column(Modifier.fillMaxWidth()) {
+                                val isNarration = entry.speaker.isNullOrBlank()
+                                if (!isNarration) {
+                                    Text(
+                                        text = entry.speaker.orEmpty(),
+                                        color = Color(0xFFE2B84B),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Spacer(Modifier.height(5.dp))
+                                }
                                 Text(
-                                    text = if (isNarration) "旁白" else entry.speaker.orEmpty(),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    entry.text,
+                                    color = if (isNarration) Color(0xFFC7CCC8) else Color(0xFFF4F5F2),
+                                    fontSize = 17.sp,
+                                    lineHeight = 26.sp,
                                 )
                             }
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                entry.text,
-                                color = if (isNarration) Color(0xFFC7CCC8) else Color(0xFFF4F5F2),
-                                fontSize = 17.sp,
-                                lineHeight = 26.sp,
-                            )
                         }
                     }
+                    BacklogScrollBar(
+                        scrollState = scrollState,
+                        coroutineScope = coroutineScope,
+                        modifier = Modifier.fillMaxHeight().width(10.dp),
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BacklogScrollBar(
+    scrollState: androidx.compose.foundation.ScrollState,
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = modifier) {
+        val trackHeightPx = with(density) { maxHeight.toPx() }
+        val maxValue = scrollState.maxValue.toFloat()
+        if (trackHeightPx <= 0f || maxValue <= 0f) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Transparent))
+            return@BoxWithConstraints
+        }
+
+        val minThumbPx = with(density) { 42.dp.toPx() }
+        val thumbHeightPx = (trackHeightPx * trackHeightPx / (trackHeightPx + maxValue))
+            .coerceIn(minThumbPx, trackHeightPx)
+        val availablePx = (trackHeightPx - thumbHeightPx).coerceAtLeast(1f)
+        val thumbOffsetPx = ((scrollState.value / maxValue) * availablePx).coerceIn(0f, availablePx)
+        val thumbHeightDp = with(density) { thumbHeightPx.toDp() }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.10f))
+                .pointerInput(scrollState, maxValue, trackHeightPx, thumbHeightPx) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            val target = ((offset.y - thumbHeightPx / 2f).coerceIn(0f, availablePx) / availablePx * maxValue)
+                                .roundToInt()
+                                .coerceIn(0, scrollState.maxValue)
+                            coroutineScope.launch { scrollState.scrollTo(target) }
+                        },
+                        onDrag = { change, _ ->
+                            val target = ((change.position.y - thumbHeightPx / 2f).coerceIn(0f, availablePx) / availablePx * maxValue)
+                                .roundToInt()
+                                .coerceIn(0, scrollState.maxValue)
+                            coroutineScope.launch { scrollState.scrollTo(target) }
+                        },
+                    )
+                },
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(2.dp)
+                    .fillMaxHeight()
+                    .background(Color.White.copy(alpha = 0.12f)),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .width(6.dp)
+                    .height(thumbHeightDp)
+                    .graphicsLayer { translationY = thumbOffsetPx }
+                    .background(Color(0xFFE2B84B), MaterialTheme.shapes.extraSmall),
+            )
         }
     }
 }

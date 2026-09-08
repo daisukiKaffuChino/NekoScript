@@ -43,14 +43,22 @@ class GameProjectValidatorTest {
     @Test
     fun rejectsUnknownNestedAssetAndMissingLabel() {
         val unknownAsset = assertFailsWith<EngineException.ProjectLoadError> {
-            validator.validate(validProject(), scriptOf(Command.Choice(listOf(ChoiceItem("Go", listOf(Command.PlaySe("missing")))))))
+            validator.validate(validProject(), scriptOf(Command.Choice(listOf(ChoiceItem("Go", listOf(Command.ChangeBackground("missing")))))))
         }
-        assertTrue(unknownAsset.message.orEmpty().contains("sound effect 'missing'"))
+        assertTrue(unknownAsset.message.orEmpty().contains("background 'missing'"))
 
         val missingLabel = assertFailsWith<EngineException.ProjectLoadError> {
             validator.validate(validProject(), scriptOf(Command.If(condition(), listOf(Command.Jump("missing")))))
         }
         assertTrue(missingLabel.message.orEmpty().contains("label 'missing'"))
+    }
+
+    @Test
+    fun allowsMissingNestedAudioCommandsToReachRuntime() {
+        validator.validate(
+            validProject(),
+            scriptOf(Command.Choice(listOf(ChoiceItem("Go", listOf(Command.PlaySe("missing"), Command.PlayVoice("line")))))),
+        )
     }
 
     @Test

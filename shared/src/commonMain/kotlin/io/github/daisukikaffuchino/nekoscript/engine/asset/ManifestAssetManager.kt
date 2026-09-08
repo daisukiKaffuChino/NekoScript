@@ -32,6 +32,9 @@ class ManifestAssetManager(
         location?.let { Asset(id, it) } ?: notFound(type, id)
 
     private fun notFound(type: String, id: String): Nothing = throw EngineException.AssetNotFound(
-        "project: ${project.id}, asset type: $type, id: $id: asset not found",
+        assetType = type,
+        assetId = id,
+        location = "<manifest>",
+        message = "project: ${project.id}, asset type: $type, id: $id: asset not found",
     )
 }

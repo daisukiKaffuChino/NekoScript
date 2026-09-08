@@ -82,7 +82,7 @@ class GameSessionFactoryTest {
                 "game.json" to validManifest,
                 "scripts/main.avg" to "play_bgm \"theme\"\nsay \"Ready\"",
             ),
-            audioPlayerFactory = AudioPlayerFactory { MissingAudioPlayer() },
+            audioPlayerFactory = AudioPlayerFactory { MissingManifestAudioPlayer() },
         ).create()
 
         session.engine.dispatch(GameAction.Next)
@@ -91,7 +91,7 @@ class GameSessionFactoryTest {
         assertEquals("theme", session.engine.viewState.value.debug?.bgm?.id)
         assertEquals(1, session.assetLoadMonitor.issues.value.size)
         assertEquals("theme", session.assetLoadMonitor.issues.value.single().assetId)
-        assertEquals("audio/theme.mp3", session.assetLoadMonitor.issues.value.single().location)
+        assertEquals("<manifest>", session.assetLoadMonitor.issues.value.single().location)
     }
 
     @Test
@@ -137,23 +137,17 @@ class GameSessionFactoryTest {
     }
 
     @Test
-    fun validatesProjectReferencesBeforeCreatingRuntimeServices() = runTest {
-        var audioFactoryCalled = false
-        val error = assertFailsWith<EngineException.ProjectLoadError> {
-            factory(
-                files = mapOf(
-                    "game.json" to validManifest,
-                    "scripts/main.avg" to "play_se \"missing\"\nsay \"Ready\"",
-                ),
-                audioPlayerFactory = AudioPlayerFactory {
-                    audioFactoryCalled = true
-                    RecordingAudioPlayer()
-                },
-            ).create()
-        }
+    fun missingAudioCommandReferencesDoNotBlockSessionCreation() = runTest {
+        val session = factory(
+            files = mapOf(
+                "game.json" to validManifest,
+                "scripts/main.avg" to "play_se \"missing\"\nsay \"Ready\"",
+            ),
+            audioPlayerFactory = AudioPlayerFactory { RecordingAudioPlayer() },
+        ).create()
 
-        assertTrue(error.message.orEmpty().contains("sound effect 'missing'"))
-        assertEquals(false, audioFactoryCalled)
+        session.engine.dispatch(GameAction.Next)
+        assertEquals("Ready", session.engine.viewState.value.dialogue?.text)
     }
 
     private fun factory(
@@ -185,13 +179,13 @@ class GameSessionFactoryTest {
         }
     }
 
-    private class MissingAudioPlayer : AudioPlayer {
+    private class MissingManifestAudioPlayer : AudioPlayer {
         override suspend fun playBgm(id: String, loop: Boolean) {
-            throw EngineException.AssetLoadError(
+            throw EngineException.AssetNotFound(
                 assetType = "BGM",
                 assetId = id,
-                location = "audio/$id.mp3",
-                message = "missing audio",
+                location = "<manifest>",
+                message = "missing audio manifest entry",
             )
         }
 

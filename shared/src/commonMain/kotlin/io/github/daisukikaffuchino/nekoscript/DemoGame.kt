@@ -16,7 +16,8 @@ private val DEMO_MANIFEST = """
       },
       "backgrounds": {
         "school_day": "backgrounds/school_day.jpg",
-        "classroom": "backgrounds/classroom.jpg"
+        "classroom": "backgrounds/classroom.jpg",
+        "corridor": "backgrounds/corridor.jpg"
       },
       "characters": {
         "yuki": {
@@ -68,7 +69,11 @@ private val DEMO_MANIFEST = """
           "aoi_4": "audio/voice/aoi_4.mp3",
           "aoi_5": "audio/voice/aoi_5.mp3",
           "aoi_6": "audio/voice/aoi_6.mp3",
-          "aoi_7": "audio/voice/aoi_7.mp3"
+          "aoi_7": "audio/voice/aoi_7.mp3",
+          "aoi_8": "audio/voice/aoi_8.mp3",
+          "aoi_9": "audio/voice/aoi_9.mp3",
+          "aoi_10": "audio/voice/aoi_10.mp3",
+          "aoi_11": "audio/voice/aoi_11.mp3"
         }
       }
     }
@@ -82,9 +87,8 @@ private val DEMO_SCRIPT = """
     say "清晨的校门口，阳光刚刚越过教学楼。"
     play_se "school_bell"
     character "yuki" "normal" left
-    play_voice "yuki_2"
-    say "悠希" "你终于来了，我还以为要迟到了。"
-    character "aoi" "normal" right
+    say "悠希" "你来得真准时。"
+    character "aoi" "happy" right
     play_voice "aoi_1"
     say "葵" "我就知道你会卡着铃声出现，和小时候一模一样。"
     stop_voice
@@ -92,13 +96,11 @@ private val DEMO_SCRIPT = """
     character "aoi" "teasing" right
     play_voice "aoi_2"
     say "葵" "怎么，见到我太惊讶，连招呼都忘了？"
-    move_character "yuki" center 300
-    play_voice "yuki_1"
-    say "悠希" "早上好。葵也来了，那我们一起进去吧？"
-    move_character "yuki" left 250
-    character "aoi" "happy" right
+    stop_voice
+    say "悠希" "早上好。今天看起来会很忙。"
+    character "aoi" "normal" right
     play_voice "aoi_3"
-    say "葵" "可以，不过谁最后进教室，谁就负责放学后的饮料。"
+    say "葵" "那就更不能迟到了，走吧，谁先到教室谁算赢。"
     stop_voice
     say "两个人同时看向我，看来这个早晨得先做个决定。"
     choice:
@@ -116,19 +118,23 @@ private val DEMO_SCRIPT = """
     label yuki_route
     character "yuki" "happy" left
     character "aoi" "teasing" right
-    play_voice "yuki_3"
-    say "悠希" "谢谢，资料有点多。幸好有你帮忙。"
+    say "悠希" "那我来拿资料吧，省得你又把纸袋晃散。"
     play_voice "aoi_4"
-    say "葵" "配合得真默契。看来我只能替你们看着时间了。"
+    say "葵" "哼，明明是你怕我跑得比你快。"
+    stop_voice
+    say "她嘴上不服气，脚步却放慢了半拍。"
     jump reunion
     label aoi_route
     character "yuki" "surprised" left
     character "aoi" "happy" right
     play_voice "aoi_5"
-    say "葵" "我是在救我们三个人不被老师记迟到，这叫经验。"
+    say "葵" "行啊，敢选我，那放学后的饮料可就先记在你账上了。"
+    stop_voice
     shake 180 1.2
-    play_voice "yuki_4"
-    say "悠希" "明明是你刚才差点撞上校门，还说得这么理直气壮。"
+    say "悠希" "你这算是威胁吗？"
+    play_voice "aoi_11"
+    say "葵" "这叫经验。"
+    stop_voice
     jump reunion
     label reunion
     background "classroom"
@@ -137,32 +143,48 @@ private val DEMO_SCRIPT = """
     character "aoi" "normal" right
     play_se "class_bell"
     transition flash 180
-    stop_voice
     say "上课铃响起时，我们刚好在座位上坐下。"
     show_cg "club_photo" fade 400
-    say "桌面上放着一张昨天拍下的社团合照。"
+    say "桌面上放着昨天拍下的社团合照。"
     hide_cg
     transition crossfade 350
     character "yuki" "happy" left
     character "aoi" "teasing" right
-    play_voice "yuki_5"
     say "悠希" "放学后，也别忘了来活动室。"
     play_voice "aoi_6"
-    say "葵" "社团结束以后归我。青梅竹马的回家搭档可不能缺席。"
-    move_character "aoi" center 300
+    say "葵" "社团结束以后归我。青梅竹马的回家搭档，可不能缺席。"
     stop_voice
-    say "一个约定变成了两个，我只能在她们的注视下点头。"
+    move_character "aoi" center 300
+    say "一瞬间，教室里安静得只剩下翻页声。"
     move_character "aoi" right 250
-    play_voice "yuki_6"
     say "悠希" "那就放学后见。"
-    hide "yuki"
+    label corridor_break
+    background "corridor"
+    transition crossfade 350
+    hide "aoi"
+    say "课间的教室外走廊安静下来，只剩窗边掠过的风声。"
+    character "yuki" "normal" left
+    say "悠希" "……终于能喘口气了。"
+    character "aoi" "happy" right
     play_voice "aoi_7"
-    say "葵" "别忘了饮料，我可记得很清楚。"
+    say "葵" "一个人躲在这里发呆？"
+    stop_voice
+    character "aoi" "teasing" right
+    play_voice "aoi_8"
+    say "葵" "课间的走廊可不是给你偷懒用的。"
+    stop_voice
+    play_voice "aoi_9"
+    say "葵" "走吧，我陪你去窗边透透气。"
+    stop_voice
+    say "悠希" "你总是这样，连休息都要管。"
+    play_voice "aoi_10"
+    say "葵" "不然怎么叫青梅竹马。"
+    stop_voice
+    hide "yuki"
     hide "aoi"
     wait 150
-    stop_voice
     stop_bgm 500
-    say "晨光落在空下来的走道上，平常的一天也有了值得期待的结尾。"
+    say "等我回过神来，走廊里只剩下被风掀起的纸页。"
     say "NekoScript Demo  完"
     jump demo_end
     label hotspot_scene
