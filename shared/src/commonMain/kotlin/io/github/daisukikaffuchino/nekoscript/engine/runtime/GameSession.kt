@@ -1,9 +1,11 @@
 package io.github.daisukikaffuchino.nekoscript.engine.runtime
 
 import io.github.daisukikaffuchino.nekoscript.engine.asset.AssetManager
+import io.github.daisukikaffuchino.nekoscript.engine.asset.AssetLoadMonitor
 import io.github.daisukikaffuchino.nekoscript.engine.asset.ManifestAssetManager
 import io.github.daisukikaffuchino.nekoscript.engine.audio.AudioPlayer
 import io.github.daisukikaffuchino.nekoscript.engine.audio.NoOpAudioPlayer
+import io.github.daisukikaffuchino.nekoscript.engine.audio.RecoveringAudioPlayer
 import io.github.daisukikaffuchino.nekoscript.engine.error.EngineException
 import io.github.daisukikaffuchino.nekoscript.engine.logging.EngineLogger
 import io.github.daisukikaffuchino.nekoscript.engine.logging.NoOpEngineLogger
@@ -11,6 +13,9 @@ import io.github.daisukikaffuchino.nekoscript.engine.project.GameProject
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectParser
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectSource
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectValidator
+import io.github.daisukikaffuchino.nekoscript.engine.interaction.HotspotRegistry
+import io.github.daisukikaffuchino.nekoscript.engine.interaction.RectHotspot
+import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalRect
 import io.github.daisukikaffuchino.nekoscript.engine.save.SaveManager
 import io.github.daisukikaffuchino.nekoscript.engine.script.AvgScriptParser
 import io.github.daisukikaffuchino.nekoscript.engine.script.DefaultScriptRuntime
@@ -24,6 +29,8 @@ data class GameSession(
     val script: Script,
     val engine: GameEngine,
     val assetManager: AssetManager,
+    val assetLoadMonitor: AssetLoadMonitor,
+    val hotspotRegistry: HotspotRegistry,
     private val audioPlayer: AudioPlayer,
 ) {
     /** Releases runtime services owned by this session. */
@@ -75,17 +82,39 @@ class GameSessionFactory(
         }
         projectValidator.validate(project, script)
         val assetManager = ManifestAssetManager(project)
-        val audioPlayer = audioPlayerFactory.create(project)
+        val assetLoadMonitor = AssetLoadMonitor()
+        val audioPlayer = RecoveringAudioPlayer(
+            delegate = audioPlayerFactory.create(project),
+            assetLoadMonitor = assetLoadMonitor,
+        )
         val runtime = DefaultScriptRuntime(
             script = script,
             audioPlayer = audioPlayer,
             logger = logger,
         )
+        val hotspotRegistry = HotspotRegistry(project.hotspots.map { (id, definition) ->
+            RectHotspot(
+                id = id,
+                bounds = LogicalRect(
+                    x = definition.x,
+                    y = definition.y,
+                    width = definition.width,
+                    height = definition.height,
+                ),
+            )
+        })
         return GameSession(
             project = project,
             script = script,
-            engine = GameEngine(runtime, saveManagerFactory.create(project)),
+            engine = GameEngine(
+                runtime = runtime,
+                saveManager = saveManagerFactory.create(project),
+                project = project,
+                hotspotBindings = project.hotspots,
+            ),
             assetManager = assetManager,
+            assetLoadMonitor = assetLoadMonitor,
+            hotspotRegistry = hotspotRegistry,
             audioPlayer = audioPlayer,
         )
     }

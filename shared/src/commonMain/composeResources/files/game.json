@@ -2,7 +2,12 @@
   "id": "nekoscript-demo",
   "name": "NekoScript Demo",
   "version": "1.0.0",
+  "debuggable": true,
   "entryScript": "scripts/main.avg",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
   "backgrounds": {
     "school_day": "backgrounds/school_day.jpg",
     "classroom": "backgrounds/classroom.jpg"
@@ -16,10 +21,29 @@
         "happy": "characters/yuki/happy.png",
         "surprised": "characters/yuki/surprised.png"
       }
+    },
+    "aoi": {
+      "name": "葵",
+      "defaultExpression": "normal",
+      "expressions": {
+        "normal": "characters/aoi/normal.png",
+        "happy": "characters/aoi/happy.png",
+        "teasing": "characters/aoi/teasing.png"
+      }
     }
   },
   "cg": {
     "club_photo": "cg/club_photo.jpg"
+  },
+  "hotspots": {
+    "club_notice": {
+      "x": 1360,
+      "y": 360,
+      "width": 360,
+      "height": 360,
+      "action": "jump",
+      "target": "hotspot_scene"
+    }
   },
   "audio": {
     "bgm": {
@@ -30,7 +54,19 @@
       "class_bell": "audio/se/class_bell.mp3"
     },
     "voice": {
-      "yuki_good_morning": "audio/voice/yuki_good_morning.mp3"
+      "yuki_1": "audio/voice/yuki_1.mp3",
+      "yuki_2": "audio/voice/yuki_2.mp3",
+      "yuki_3": "audio/voice/yuki_3.mp3",
+      "yuki_4": "audio/voice/yuki_4.mp3",
+      "yuki_5": "audio/voice/yuki_5.mp3",
+      "yuki_6": "audio/voice/yuki_6.mp3",
+      "aoi_1": "audio/voice/aoi_1.mp3",
+      "aoi_2": "audio/voice/aoi_2.mp3",
+      "aoi_3": "audio/voice/aoi_3.mp3",
+      "aoi_4": "audio/voice/aoi_4.mp3",
+      "aoi_5": "audio/voice/aoi_5.mp3",
+      "aoi_6": "audio/voice/aoi_6.mp3",
+      "aoi_7": "audio/voice/aoi_7.mp3"
     }
   }
 }

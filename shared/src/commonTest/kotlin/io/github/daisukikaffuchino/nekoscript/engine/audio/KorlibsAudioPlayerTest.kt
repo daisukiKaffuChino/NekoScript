@@ -148,6 +148,7 @@ class KorlibsAudioPlayerTest {
         name = "Audio Test",
         version = "1",
         entryScript = "main.avg",
+        viewport = io.github.daisukikaffuchino.nekoscript.engine.project.ViewportConfig(),
         audio = AudioManifest(
             bgm = mapOf("theme" to "audio/theme.mp3", "alternate" to "audio/alternate.mp3"),
             se = mapOf("bell" to "audio/bell.mp3"),

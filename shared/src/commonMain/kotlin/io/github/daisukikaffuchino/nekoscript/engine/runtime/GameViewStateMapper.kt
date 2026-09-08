@@ -1,6 +1,8 @@
 package io.github.daisukikaffuchino.nekoscript.engine.runtime
 
 import io.github.daisukikaffuchino.nekoscript.engine.effect.VisualEffect
+import io.github.daisukikaffuchino.nekoscript.engine.project.GameProject
+import io.github.daisukikaffuchino.nekoscript.engine.viewport.GameViewport
 
 /** Converts an engine state snapshot into the smaller renderer-facing model. */
 fun GameState.toGameViewState(
@@ -8,7 +10,9 @@ fun GameState.toGameViewState(
     isSkipMode: Boolean = false,
     isBacklogOpen: Boolean = false,
     textSpeedMillis: Int = DEFAULT_TEXT_SPEED_MILLIS,
+    project: GameProject? = null,
 ): GameViewState = GameViewState(
+    viewport = project?.viewport?.toGameViewport() ?: GameViewport.DEFAULT,
     background = background?.let { BackgroundView(it.backgroundId) },
     characters = characters.map {
         CharacterView(
@@ -43,6 +47,33 @@ fun GameState.toGameViewState(
                 effect.durationMillis,
                 effect.characterId,
             )
+        }
+    },
+    debug = project?.takeIf(GameProject::debuggable)?.let(::toDebugView),
+)
+
+private fun GameState.toDebugView(project: GameProject): GameDebugView = GameDebugView(
+    scriptId = scriptId,
+    nextNodeIndex = position.nodeIndex,
+    textId = dialogue?.let { "$scriptId:node_${(position.nodeIndex - 1).coerceAtLeast(0)}" },
+    background = background?.backgroundId?.let { id ->
+        project.backgrounds[id]?.let { DebugAssetView(id, it) }
+    },
+    characters = characters.mapNotNull { character ->
+        val definition = project.characters[character.characterId] ?: return@mapNotNull null
+        val expression = character.expression ?: definition.defaultExpression
+        definition.expressions[expression]?.let { location ->
+            DebugAssetView("${character.characterId}:$expression", location)
+        }
+    },
+    cg = cgId?.let { id -> project.cg[id]?.let { DebugAssetView(id, it) } },
+    bgm = audio.bgmId?.let { id -> project.audio.bgm[id]?.let { DebugAssetView(id, it) } },
+    voice = audio.voiceId?.let { id -> project.audio.voice[id]?.let { DebugAssetView(id, it) } },
+    effect = visualEffect?.takeIf { status == RuntimeStatus.WaitingForEffect }?.effect?.let { effect ->
+        when (effect) {
+            is VisualEffect.Transition -> "transition:${effect.type.name.lowercase()}"
+            is VisualEffect.Shake -> "shake"
+            is VisualEffect.CharacterMove -> "move:${effect.characterId}"
         }
     },
 )

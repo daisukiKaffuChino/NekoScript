@@ -76,6 +76,25 @@ class GameSessionFactoryTest {
     }
 
     @Test
+    fun missingAudioIsReportedWithoutStoppingScriptExecution() = runTest {
+        val session = factory(
+            files = mapOf(
+                "game.json" to validManifest,
+                "scripts/main.avg" to "play_bgm \"theme\"\nsay \"Ready\"",
+            ),
+            audioPlayerFactory = AudioPlayerFactory { MissingAudioPlayer() },
+        ).create()
+
+        session.engine.dispatch(GameAction.Next)
+
+        assertEquals("Ready", session.engine.viewState.value.dialogue?.text)
+        assertEquals("theme", session.engine.viewState.value.debug?.bgm?.id)
+        assertEquals(1, session.assetLoadMonitor.issues.value.size)
+        assertEquals("theme", session.assetLoadMonitor.issues.value.single().assetId)
+        assertEquals("audio/theme.mp3", session.assetLoadMonitor.issues.value.single().location)
+    }
+
+    @Test
     fun wrapsMissingManifestAndEntryScriptWithFileLocation() = runTest {
         val missingManifest = assertFailsWith<EngineException.ProjectLoadError> {
             factory(emptyMap()).create()
@@ -166,13 +185,31 @@ class GameSessionFactoryTest {
         }
     }
 
+    private class MissingAudioPlayer : AudioPlayer {
+        override suspend fun playBgm(id: String, loop: Boolean) {
+            throw EngineException.AssetLoadError(
+                assetType = "BGM",
+                assetId = id,
+                location = "audio/$id.mp3",
+                message = "missing audio",
+            )
+        }
+
+        override suspend fun stopBgm(fadeOutMillis: Long) = Unit
+        override suspend fun playSe(id: String) = Unit
+        override suspend fun playVoice(id: String) = Unit
+        override suspend fun stopVoice() = Unit
+    }
+
     private companion object {
         val validManifest = """
             {
               "id": "sample",
               "name": "Sample Game",
               "version": "1.0.0",
+              "debuggable": true,
               "entryScript": "scripts/main.avg",
+              "viewport": { "width": 1920, "height": 1080 },
               "backgrounds": { "school": "backgrounds/school.jpg" },
               "characters": {
                 "yuki": {

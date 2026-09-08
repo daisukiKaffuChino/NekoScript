@@ -9,4 +9,7 @@ interface SaveManager {
 
     /** Returns the migrated save in [slot], or `null` when the slot is empty. */
     suspend fun load(slot: String): SaveData?
+
+    /** Deletes the save in [slot], if present. */
+    suspend fun delete(slot: String)
 }

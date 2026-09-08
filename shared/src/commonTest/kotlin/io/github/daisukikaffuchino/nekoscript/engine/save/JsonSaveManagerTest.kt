@@ -38,6 +38,18 @@ class JsonSaveManagerTest {
     }
 
     @Test
+    fun deletesSavedSlots() = runTest {
+        val storage = FakeStorage()
+        val manager = JsonSaveManager(storage, timestampProvider = { 0L })
+        manager.save("slot-1", GameState("main.avg"))
+
+        manager.delete("slot-1")
+
+        assertNull(storage.values["slot-1"])
+        assertNull(manager.load("slot-1"))
+    }
+
+    @Test
     fun appliesEveryAdjacentMigrationBeforeDecoding() = runTest {
         val storage = FakeStorage()
         JsonSaveManager(storage, currentVersion = 1, timestampProvider = { 10L })
@@ -80,6 +92,10 @@ class JsonSaveManagerTest {
 
         override suspend fun write(slot: String, data: String) {
             values[slot] = data
+        }
+
+        override suspend fun delete(slot: String) {
+            values.remove(slot)
         }
     }
 

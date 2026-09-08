@@ -19,6 +19,9 @@ class GameActionTest {
     fun statelessActionsHaveStableIdentity() {
         assertEquals(GameAction.Next, GameAction.Next)
         assertEquals(GameAction.QuickSave, GameAction.QuickSave)
+        assertEquals(GameAction.OpenSaveMenu, GameAction.OpenSaveMenu)
+        assertEquals(GameAction.OpenLoadMenu, GameAction.OpenLoadMenu)
+        assertEquals(GameAction.CloseSaveMenu, GameAction.CloseSaveMenu)
     }
 
     @Test
@@ -38,5 +41,15 @@ class GameActionTest {
     fun hotspotActivationCarriesOnlyAValidatedLogicalId() {
         assertEquals("door", GameAction.ActivateHotspot("door").hotspotId)
         assertFailsWith<IllegalArgumentException> { GameAction.ActivateHotspot(" ") }
+    }
+
+    @Test
+    fun saveSlotActionsValidateSlotIds() {
+        assertEquals("slot-01", GameAction.SaveToSlot("slot-01").slotId)
+        assertEquals("slot-01", GameAction.LoadFromSlot("slot-01").slotId)
+        assertEquals("slot-01", GameAction.DeleteSaveSlot("slot-01").slotId)
+        assertFailsWith<IllegalArgumentException> { GameAction.SaveToSlot(" ") }
+        assertFailsWith<IllegalArgumentException> { GameAction.LoadFromSlot(" ") }
+        assertFailsWith<IllegalArgumentException> { GameAction.DeleteSaveSlot(" ") }
     }
 }

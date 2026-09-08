@@ -12,4 +12,8 @@ class IosUserDefaultsSaveStorage(
     override suspend fun write(slot: String, data: String) {
         defaults.setObject(data, forKey = keyPrefix + slot)
     }
+
+    override suspend fun delete(slot: String) {
+        defaults.removeObjectForKey(keyPrefix + slot)
+    }
 }

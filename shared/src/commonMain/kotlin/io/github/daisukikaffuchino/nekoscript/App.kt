@@ -93,9 +93,14 @@ fun App(
                 val currentSession = session!!
                 val engine = currentSession.engine
                 val state by engine.viewState.collectAsState()
+                val assetLoadIssues by currentSession.assetLoadMonitor.issues.collectAsState()
                 val scope = rememberCoroutineScope()
                 val imageAssets = remember(currentSession) {
-                    ComposeResourceImageAssetResolver(currentSession.assetManager, projectSource)
+                    ComposeResourceImageAssetResolver(
+                        currentSession.assetManager,
+                        projectSource,
+                        currentSession.assetLoadMonitor,
+                    )
                 }
                 DisposableEffect(currentSession) {
                     onDispose(currentSession::release)
@@ -105,6 +110,8 @@ fun App(
                     state = state,
                     imageAssets = imageAssets,
                     imageLoader = imageLoader,
+                    assetLoadIssues = assetLoadIssues,
+                    hotspotRegistry = currentSession.hotspotRegistry,
                     onAction = { action -> scope.launch { engine.dispatch(action) } },
                 )
             }

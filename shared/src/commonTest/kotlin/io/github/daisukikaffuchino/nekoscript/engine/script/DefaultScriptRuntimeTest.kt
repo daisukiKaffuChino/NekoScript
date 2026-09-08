@@ -79,6 +79,42 @@ class DefaultScriptRuntimeTest {
     }
 
     @Test
+    fun jumpToLabelClearsPauseStateAndContinuesFromTheBoundSceneTarget() = runTest {
+        val runtime = runtime(
+            """
+                label start
+                say "Before hotspot"
+                label notice
+                say "Notice opened"
+            """.trimIndent(),
+        )
+
+        runtime.next()
+        assertEquals("Before hotspot", runtime.state.value.dialogue?.text)
+
+        runtime.jumpToLabel("notice")
+
+        assertEquals("Notice opened", runtime.state.value.dialogue?.text)
+        assertEquals(RuntimeStatus.WaitingForInput, runtime.state.value.status)
+        assertEquals(listOf("Before hotspot", "Notice opened"), runtime.state.value.history.map { it.text })
+    }
+
+    @Test
+    fun jumpToLabelStopsInterruptedVoice() = runTest {
+        val player = RecordingAudioPlayer()
+        val runtime = DefaultScriptRuntime(
+            parser.parse("main.avg", "play_voice \"line\"\nsay \"Before\"\nlabel notice\nsay \"Notice\""),
+            audioPlayer = player,
+        )
+
+        runtime.next()
+        runtime.jumpToLabel("notice")
+
+        assertEquals(null, runtime.state.value.audio.voiceId)
+        assertEquals("stopVoice", player.events.last())
+    }
+
+    @Test
     fun rejectsInvalidActionsAndUnknownLabels() = runTest {
         val runtime = runtime("label start\nchoice:\n    \"Only\":\n        jump missing")
 

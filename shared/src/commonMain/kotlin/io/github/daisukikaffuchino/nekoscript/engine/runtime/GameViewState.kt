@@ -2,6 +2,7 @@ package io.github.daisukikaffuchino.nekoscript.engine.runtime
 
 import io.github.daisukikaffuchino.nekoscript.engine.character.CharacterPosition
 import io.github.daisukikaffuchino.nekoscript.engine.effect.TransitionType
+import io.github.daisukikaffuchino.nekoscript.engine.viewport.GameViewport
 
 /**
  * Presentation-ready snapshot consumed by a UI implementation.
@@ -23,6 +24,7 @@ import io.github.daisukikaffuchino.nekoscript.engine.effect.TransitionType
  * @property visualEffect latest presentation effect request
  */
 data class GameViewState(
+    val viewport: GameViewport = GameViewport.DEFAULT,
     val background: BackgroundView? = null,
     val characters: List<CharacterView> = emptyList(),
     val dialogue: DialogueView? = null,
@@ -35,6 +37,8 @@ data class GameViewState(
     val textSpeedMillis: Int = DEFAULT_TEXT_SPEED_MILLIS,
     val cg: CgView? = null,
     val visualEffect: VisualEffectView? = null,
+    val debug: GameDebugView? = null,
+    val saveMenu: SaveMenuView? = null,
 )
 
 /** Default delay between characters in the standard presentation. */
@@ -76,6 +80,25 @@ data class ChoiceView(
 
 /** @property assetId renderer-facing CG asset identifier */
 data class CgView(val assetId: String)
+
+/** Presentation-ready project asset identity shown only for debuggable projects. */
+data class DebugAssetView(
+    val id: String,
+    val location: String,
+)
+
+/** Read-only runtime diagnostics projected without adding debug data to save state. */
+data class GameDebugView(
+    val scriptId: String,
+    val nextNodeIndex: Int,
+    val textId: String? = null,
+    val background: DebugAssetView? = null,
+    val characters: List<DebugAssetView> = emptyList(),
+    val cg: DebugAssetView? = null,
+    val bgm: DebugAssetView? = null,
+    val voice: DebugAssetView? = null,
+    val effect: String? = null,
+)
 
 /** Presentation-safe visual effect request. */
 sealed interface VisualEffectView {

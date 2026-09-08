@@ -72,6 +72,30 @@ class GameProjectValidatorTest {
     }
 
     @Test
+    fun validatesHotspotTargetsAndRejectsUnknownLabels() {
+        validator.validate(
+            validProject().copy(
+                hotspots = mapOf(
+                    "notice" to HotspotDefinition(100.0, 200.0, 300.0, 180.0, target = "ending"),
+                ),
+            ),
+            scriptOf(Command.Say(null, "Ready")),
+        )
+
+        val error = assertFailsWith<EngineException.ProjectLoadError> {
+            validator.validate(
+                validProject().copy(
+                    hotspots = mapOf(
+                        "notice" to HotspotDefinition(100.0, 200.0, 300.0, 180.0, target = "missing"),
+                    ),
+                ),
+                scriptOf(Command.Say(null, "Ready")),
+            )
+        }
+        assertTrue(error.message.orEmpty().contains("hotspot 'notice' targets undeclared label 'missing'"))
+    }
+
+    @Test
     fun rejectsUnsafeEmptyAndUnsupportedManifestLocations() {
         val unsafe = assertFailsWith<EngineException.ProjectLoadError> {
             validator.validate(
@@ -98,6 +122,12 @@ class GameProjectValidatorTest {
         assertTrue(ogg.message.orEmpty().contains("unsupported audio format 'ogg'"))
     }
 
+    @Test
+    fun rejectsInvalidProjectViewportDimensions() {
+        assertFailsWith<IllegalArgumentException> { ViewportConfig(width = 0, height = 1080) }
+        assertFailsWith<IllegalArgumentException> { ViewportConfig(width = 1920, height = -1) }
+    }
+
     private fun scriptOf(command: Command): Script = Script(
         id = "scripts/main.avg",
         nodes = listOf(ScriptNode.CommandNode(command), ScriptNode.Label("ending")),
@@ -109,6 +139,7 @@ class GameProjectValidatorTest {
         name = "Test",
         version = "1",
         entryScript = "scripts/main.avg",
+        viewport = ViewportConfig(),
         backgrounds = mapOf("school" to "backgrounds/school.jpg"),
         characters = mapOf(
             "yuki" to CharacterDefinition(

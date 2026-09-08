@@ -20,4 +20,10 @@ class AndroidPreferencesSaveStorage(
             throw EngineException.SaveError("slot: $slot: Android storage commit failed")
         }
     }
+
+    override suspend fun delete(slot: String) {
+        if (!preferences.edit().remove(slot).commit()) {
+            throw EngineException.SaveError("slot: $slot: Android storage delete failed")
+        }
+    }
 }

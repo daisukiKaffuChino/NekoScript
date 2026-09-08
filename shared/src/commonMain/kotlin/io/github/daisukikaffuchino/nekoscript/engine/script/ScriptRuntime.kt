@@ -14,6 +14,9 @@ interface ScriptRuntime {
     /** Selects a pending choice by zero-based [index] and resumes execution. */
     suspend fun selectChoice(index: Int)
 
+    /** Jumps to a validated script label in response to a bound scene interaction. */
+    suspend fun jumpToLabel(label: String)
+
     /** Replaces the current runtime state with a validated save snapshot. */
     suspend fun restore(state: GameState)
 

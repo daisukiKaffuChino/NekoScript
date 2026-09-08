@@ -38,6 +38,11 @@ class JvmFileSaveStorage(
         Unit
     }
 
+    override suspend fun delete(slot: String) = withContext(Dispatchers.IO) {
+        Files.deleteIfExists(pathFor(slot))
+        Unit
+    }
+
     private fun pathFor(slot: String): Path {
         require(SLOT_PATTERN.matches(slot)) { "Invalid save slot name." }
         return directory.resolve("$slot.json")

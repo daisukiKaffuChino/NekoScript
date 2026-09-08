@@ -30,6 +30,36 @@ sealed interface GameAction {
     /** Requests loading from the designated quick-save slot. */
     data object QuickLoad : GameAction
 
+    /** Opens the galgame-style manual save menu. */
+    data object OpenSaveMenu : GameAction
+
+    /** Opens the galgame-style manual load menu. */
+    data object OpenLoadMenu : GameAction
+
+    /** Closes the save/load menu. */
+    data object CloseSaveMenu : GameAction
+
+    /** Saves the current runtime state to [slotId]. */
+    data class SaveToSlot(val slotId: String) : GameAction {
+        init {
+            require(slotId.isNotBlank()) { "Save slot id must not be blank." }
+        }
+    }
+
+    /** Loads the runtime state from [slotId]. */
+    data class LoadFromSlot(val slotId: String) : GameAction {
+        init {
+            require(slotId.isNotBlank()) { "Save slot id must not be blank." }
+        }
+    }
+
+    /** Deletes the save stored in [slotId]. */
+    data class DeleteSaveSlot(val slotId: String) : GameAction {
+        init {
+            require(slotId.isNotBlank()) { "Save slot id must not be blank." }
+        }
+    }
+
     /** Updates the presentation delay between revealed characters. */
     data class SetTextSpeed(val millisPerCharacter: Int) : GameAction {
         init {

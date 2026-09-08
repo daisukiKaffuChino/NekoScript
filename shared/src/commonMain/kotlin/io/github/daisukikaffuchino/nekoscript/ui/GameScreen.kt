@@ -63,16 +63,22 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Size
 import io.github.daisukikaffuchino.nekoscript.engine.character.CharacterPosition
+import io.github.daisukikaffuchino.nekoscript.engine.asset.AssetLoadIssue
 import io.github.daisukikaffuchino.nekoscript.engine.interaction.HotspotRegistry
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.BackgroundView
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.CharacterView
+import io.github.daisukikaffuchino.nekoscript.engine.runtime.DebugAssetView
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameAction
+import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameDebugView
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameViewState
+import io.github.daisukikaffuchino.nekoscript.engine.runtime.SaveMenuMode
+import io.github.daisukikaffuchino.nekoscript.engine.runtime.SaveMenuView
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.VisualEffectView
 import io.github.daisukikaffuchino.nekoscript.engine.effect.TransitionType
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.ContainerPoint
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.GameViewport
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalPoint
+import io.github.daisukikaffuchino.nekoscript.engine.save.SaveSlotSummary
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ImageAssetResolver
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ResolvedImageAsset
 import kotlinx.coroutines.CancellationException
@@ -92,8 +98,10 @@ fun GameScreen(
     onAction: (GameAction) -> Unit,
     modifier: Modifier = Modifier,
     hotspotRegistry: HotspotRegistry? = null,
+    assetLoadIssues: List<AssetLoadIssue> = emptyList(),
+    renderBackendInfo: RenderBackendInfo = platformRenderBackendInfo(),
 ) {
-    val viewport = GameViewport.DEFAULT
+    val viewport = state.viewport
     val currentHotspotRegistry = rememberUpdatedState(hotspotRegistry)
     val currentOnAction = rememberUpdatedState(onAction)
     val sceneProgress = remember { Animatable(1f) }
@@ -133,7 +141,7 @@ fun GameScreen(
             .safeContentPadding()
             .logicalPointerInput(
                 viewport = viewport,
-                enabled = !state.isBacklogOpen && hotspotRegistry != null,
+                enabled = !state.isBacklogOpen && state.saveMenu == null && hotspotRegistry != null,
                 onLogicalPointerDown = { point ->
                     currentHotspotRegistry.value?.hitTest(point)?.let { hotspot ->
                         currentOnAction.value(GameAction.ActivateHotspot(hotspot.id))
@@ -194,6 +202,12 @@ fun GameScreen(
                 modifier = Modifier.align(Alignment.TopEnd).padding(horizontal = 14.dp, vertical = 7.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                TextButton(onClick = { onAction(GameAction.OpenSaveMenu) }) {
+                    Text("Save", color = Color.White, fontSize = 13.sp)
+                }
+                TextButton(onClick = { onAction(GameAction.OpenLoadMenu) }) {
+                    Text("Load", color = Color.White, fontSize = 13.sp)
+                }
                 TextButton(onClick = { onAction(GameAction.QuickSave) }) {
                     Text("Quick Save", color = Color.White, fontSize = 13.sp)
                 }
@@ -207,6 +221,15 @@ fun GameScreen(
                 onAction = onAction,
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp),
             )
+
+            state.debug?.let { debug ->
+                DebugPanel(
+                    debug = debug,
+                    assetLoadIssues = assetLoadIssues,
+                    renderBackendInfo = renderBackendInfo,
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 48.dp),
+                )
+            }
 
             if (state.choices.isNotEmpty()) {
                 ChoicePanel(
@@ -302,8 +325,108 @@ fun GameScreen(
             if (state.isBacklogOpen) {
                 BacklogScreen(state, onAction)
             }
+
+            state.saveMenu?.let { saveMenu ->
+                SaveMenuScreen(
+                    saveMenu = saveMenu,
+                    onAction = onAction,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun DebugPanel(
+    debug: GameDebugView,
+    assetLoadIssues: List<AssetLoadIssue>,
+    renderBackendInfo: RenderBackendInfo,
+    modifier: Modifier = Modifier,
+) {
+    var isExpanded by remember { mutableStateOf(true) }
+    Surface(
+        modifier = modifier.widthIn(min = 300.dp, max = 460.dp),
+        color = Color(0xD9101513),
+        contentColor = Color(0xFFE9ECE8),
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("DEBUG", color = Color(0xFFE2B84B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                TextButton(
+                    onClick = { isExpanded = !isExpanded },
+                    modifier = Modifier.size(30.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                ) {
+                    Text(if (isExpanded) "^" else "v", color = Color(0xFFE2B84B), fontSize = 15.sp)
+                }
+            }
+            if (isExpanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    DebugLine("Render", renderBackendInfo.displayName)
+                    DebugLine("SCRIPT", "${debug.scriptId} -> ${debug.nextNodeIndex}")
+                    debug.textId?.let { DebugLine("TEXT", it) }
+                    debug.background?.let { DebugAssetLine("BG", it, assetLoadIssues) }
+                    debug.characters.forEach { DebugAssetLine("CHAR", it, assetLoadIssues) }
+                    debug.cg?.let { DebugAssetLine("CG", it, assetLoadIssues) }
+                    debug.bgm?.let { DebugAssetLine("BGM", it, assetLoadIssues) }
+                    debug.voice?.let { DebugAssetLine("VOICE", it, assetLoadIssues) }
+                    debug.effect?.let { DebugLine("EFFECT", it) }
+                    val currentAssets = buildList {
+                        debug.background?.let(::add)
+                        addAll(debug.characters)
+                        debug.cg?.let(::add)
+                        debug.bgm?.let(::add)
+                        debug.voice?.let(::add)
+                    }
+                    assetLoadIssues
+                        .filterNot { issue -> currentAssets.any { it.matches(issue) } }
+                        .forEach { issue ->
+                            DebugLine(
+                                label = "MISSING ${issue.assetType.uppercase()}",
+                                value = "${issue.assetId} | ${issue.location}",
+                                isError = true,
+                            )
+                        }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebugAssetLine(
+    label: String,
+    asset: DebugAssetView,
+    issues: List<AssetLoadIssue>,
+) {
+    DebugLine(
+        label = label,
+        value = "${asset.id} | ${asset.location}",
+        isError = issues.any(asset::matches),
+    )
+}
+
+private fun DebugAssetView.matches(issue: AssetLoadIssue): Boolean =
+    id == issue.assetId && location == issue.location
+
+@Composable
+private fun DebugLine(
+    label: String,
+    value: String,
+    isError: Boolean = false,
+) {
+    Text(
+        text = "$label  $value",
+        color = if (isError) Color(0xFFFF6B6B) else Color(0xFFE9ECE8),
+        fontSize = 10.sp,
+        lineHeight = 13.sp,
+    )
 }
 
 @Composable
@@ -349,7 +472,7 @@ private fun BacklogScreen(
     onAction: (GameAction) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().clickable(onClick = {}),
         color = Color(0xFA101513),
         contentColor = Color.White,
     ) {
@@ -382,6 +505,164 @@ private fun BacklogScreen(
 }
 
 @Composable
+private fun SaveMenuScreen(
+    saveMenu: SaveMenuView,
+    onAction: (GameAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val modeLabel = when (saveMenu.mode) {
+        SaveMenuMode.Save -> "Save"
+        SaveMenuMode.Load -> "Load"
+    }
+    Surface(
+        modifier = modifier.fillMaxSize().clickable(onClick = {}),
+        color = Color(0xF2101513),
+        contentColor = Color.White,
+    ) {
+        Column(modifier = Modifier.fillMaxSize().safeContentPadding().padding(horizontal = 24.dp, vertical = 18.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(modeLabel, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (saveMenu.mode == SaveMenuMode.Save) "Choose a slot to overwrite." else "Choose a slot to load.",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 12.sp,
+                    )
+                }
+                TextButton(onClick = { onAction(GameAction.CloseSaveMenu) }) {
+                    Text("Close")
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                saveMenu.slots.forEach { slot ->
+                    SaveSlotCard(
+                        slot = slot,
+                        mode = saveMenu.mode,
+                        onAction = onAction,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SaveSlotCard(
+    slot: SaveSlotSummary,
+    mode: SaveMenuMode,
+    onAction: (GameAction) -> Unit,
+) {
+    val isLoadable = !slot.isEmpty && !slot.isBroken
+    val primaryLabel = when (mode) {
+        SaveMenuMode.Save -> if (slot.isEmpty) "Save" else "Overwrite"
+        SaveMenuMode.Load -> if (isLoadable) "Load" else "Unavailable"
+    }
+    val primaryEnabled = when (mode) {
+        SaveMenuMode.Save -> true
+        SaveMenuMode.Load -> isLoadable
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = when {
+            slot.isBroken -> Color(0xFF4D2323)
+            slot.isEmpty -> Color(0xB41D2420)
+            else -> Color(0xD7222B27)
+        },
+        contentColor = Color.White,
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = primaryEnabled) {
+                    when (mode) {
+                        SaveMenuMode.Save -> onAction(GameAction.SaveToSlot(slot.slotId))
+                        SaveMenuMode.Load -> onAction(GameAction.LoadFromSlot(slot.slotId))
+                    }
+                }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = slot.displayName,
+                    color = when {
+                        slot.isBroken -> Color(0xFFFF8C8C)
+                        slot.isEmpty -> Color(0xFFE2B84B).copy(alpha = 0.86f)
+                        else -> Color(0xFFE2B84B)
+                    },
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = when {
+                        slot.isBroken -> slot.errorMessage ?: "Broken save"
+                        slot.isEmpty -> "Empty slot"
+                        else -> buildString {
+                            slot.speaker?.takeIf(String::isNotBlank)?.let {
+                                append(it)
+                                append(" · ")
+                            }
+                            append(slot.previewText ?: "No preview")
+                        }
+                    },
+                    color = when {
+                        slot.isBroken -> Color(0xFFFFB3B3)
+                        slot.isEmpty -> Color.White.copy(alpha = 0.55f)
+                        else -> Color.White.copy(alpha = 0.92f)
+                    },
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                )
+                slot.contextLabel?.let {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = it,
+                        color = Color.White.copy(alpha = 0.45f),
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = primaryLabel,
+                    color = if (primaryEnabled) Color.White else Color.White.copy(alpha = 0.35f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                slot.timestamp?.let {
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        text = "ts: $it",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 10.sp,
+                    )
+                }
+                Spacer(Modifier.height(7.dp))
+                TextButton(
+                    onClick = { onAction(GameAction.DeleteSaveSlot(slot.slotId)) },
+                    enabled = !slot.isEmpty,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                ) {
+                    Text("Delete", fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BackgroundLayer(
     background: BackgroundView?,
     imageAssets: ImageAssetResolver,
@@ -403,7 +684,6 @@ private fun BackgroundLayer(
             contentScale = ContentScale.Crop,
             contentDescription = background?.assetId?.let { "Background $it" },
         )
-        loadState.error?.let { AssetLoadFailure(it) }
     }
 }
 
@@ -480,7 +760,6 @@ private fun CharacterSprite(
             alpha = imageAlpha,
             onSuccess = { imageLoaded = true },
         )
-        loadState.error?.let { AssetLoadFailure(it) }
     }
 }
 
@@ -515,35 +794,18 @@ private fun CgLayer(
             contentScale = ContentScale.Crop,
             contentDescription = "CG $assetId",
         )
-        loadState.error?.let { AssetLoadFailure(it) }
     }
 }
 
 private data class ImageLoadState(
     val image: ResolvedImageAsset? = null,
-    val error: Throwable? = null,
 )
 
 private suspend fun loadImage(resolve: suspend () -> ResolvedImageAsset?): ImageLoadState = try {
     ImageLoadState(image = resolve())
 } catch (error: Throwable) {
     if (error is CancellationException) throw error
-    ImageLoadState(error = error)
-}
-
-@Composable
-private fun AssetLoadFailure(error: Throwable) {
-    Box(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = error.message ?: "Asset failed to load",
-            color = Color(0xFFFFB4AB),
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-        )
-    }
+    ImageLoadState()
 }
 
 @Composable

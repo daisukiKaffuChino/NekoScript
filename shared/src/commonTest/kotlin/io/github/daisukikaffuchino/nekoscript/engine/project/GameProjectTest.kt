@@ -14,6 +14,7 @@ class GameProjectTest {
           "name": "示例游戏",
           "version": "1.0.0",
           "entryScript": "scripts/main.avg",
+          "viewport": { "width": 1024, "height": 768 },
           "backgrounds": { "school": "backgrounds/school.jpg" },
           "characters": {
             "yuki": {
@@ -37,6 +38,7 @@ class GameProjectTest {
         assertEquals("sample", project.id)
         assertEquals("示例游戏", project.name)
         assertEquals("scripts/main.avg", project.entryScript)
+        assertEquals(ViewportConfig(1024, 768), project.viewport)
         assertEquals("悠希", project.characters.getValue("yuki").name)
         assertEquals("audio/bgm/theme.ogg", project.audio.bgm.getValue("theme"))
     }

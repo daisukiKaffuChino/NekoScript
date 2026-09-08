@@ -70,6 +70,20 @@ class DefaultScriptRuntime(
         executeUntilPause()
     }
 
+    override suspend fun jumpToLabel(label: String) = mutex.withLock {
+        val target = resolveLabel(label)
+        audioPlayer.stopVoice()
+        mutableState.value = mutableState.value.copy(
+            position = ScriptPosition(target),
+            dialogue = null,
+            pendingChoices = emptyList(),
+            visualEffect = null,
+            audio = mutableState.value.audio.copy(voiceId = null),
+            status = RuntimeStatus.Running,
+        )
+        executeUntilPause()
+    }
+
     override suspend fun restore(state: GameState) = mutex.withLock {
         val restored = state.validateFor(script)
         restoreAudio(restored)

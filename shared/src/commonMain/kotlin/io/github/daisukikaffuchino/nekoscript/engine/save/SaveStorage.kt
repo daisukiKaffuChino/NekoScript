@@ -7,4 +7,7 @@ interface SaveStorage {
 
     /** Durably replaces [slot] with raw save [data]. */
     suspend fun write(slot: String, data: String)
+
+    /** Removes [slot] from persistence, if present. */
+    suspend fun delete(slot: String)
 }

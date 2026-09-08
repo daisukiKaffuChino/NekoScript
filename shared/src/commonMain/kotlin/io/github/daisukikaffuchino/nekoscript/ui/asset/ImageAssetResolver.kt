@@ -1,6 +1,7 @@
 package io.github.daisukikaffuchino.nekoscript.ui.asset
 
 import io.github.daisukikaffuchino.nekoscript.engine.asset.Asset
+import io.github.daisukikaffuchino.nekoscript.engine.asset.AssetLoadMonitor
 import io.github.daisukikaffuchino.nekoscript.engine.asset.AssetManager
 import io.github.daisukikaffuchino.nekoscript.engine.error.EngineException
 import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectSource
@@ -26,6 +27,7 @@ interface ImageAssetResolver {
 class ComposeResourceImageAssetResolver(
     private val assetManager: AssetManager,
     private val source: GameProjectSource,
+    private val assetLoadMonitor: AssetLoadMonitor? = null,
 ) : ImageAssetResolver {
     override suspend fun resolveBackground(assetId: String): ResolvedImageAsset =
         resolve("background", assetManager.loadBackground(assetId))
@@ -41,14 +43,17 @@ class ComposeResourceImageAssetResolver(
             source.readBytes(asset.location)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
-            throw EngineException.AssetLoadError(
+            val loadError = EngineException.AssetLoadError(
                 assetType = kind,
                 assetId = asset.id,
                 location = asset.location,
                 message = "$kind asset '${asset.id}' at '${asset.location}' failed to load",
                 cause = error,
             )
+            assetLoadMonitor?.report(loadError)
+            throw loadError
         }
+        assetLoadMonitor?.markLoaded(kind, asset.id, asset.location)
         return ResolvedImageAsset(
             assetId = asset.id,
             data = data,

@@ -19,6 +19,12 @@ class GameProjectValidator {
         project.audio.bgm.forEach { (id, location) -> validateAudioLocation(project, "BGM", id, location) }
         project.audio.se.forEach { (id, location) -> validateAudioLocation(project, "sound effect", id, location) }
         project.audio.voice.forEach { (id, location) -> validateAudioLocation(project, "voice", id, location) }
+        project.hotspots.forEach { (id, hotspot) ->
+            if (id.isBlank()) invalid(project, "hotspot id must not be blank")
+            if (hotspot.target !in script.labels) {
+                invalid(project, "hotspot '$id' targets undeclared label '${hotspot.target}'")
+            }
+        }
 
         script.nodes.filterIsInstance<ScriptNode.CommandNode>().forEach { node ->
             validateCommand(project, script, node.command)

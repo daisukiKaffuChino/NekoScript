@@ -9,4 +9,8 @@ class InMemorySaveStorage : SaveStorage {
     override suspend fun write(slot: String, data: String) {
         slots[slot] = data
     }
+
+    override suspend fun delete(slot: String) {
+        slots.remove(slot)
+    }
 }

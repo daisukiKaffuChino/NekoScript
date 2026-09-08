@@ -96,6 +96,17 @@ class JsonSaveManager(
         }
     }
 
+    override suspend fun delete(slot: String) = mutex.withLock {
+        validateSlot(slot)
+        try {
+            storage.delete(slot)
+        } catch (error: EngineException.SaveError) {
+            throw error
+        } catch (error: Exception) {
+            throw EngineException.SaveError("slot: $slot: failed to delete save", error)
+        }
+    }
+
     private fun validateSlot(slot: String) {
         if (!SLOT_PATTERN.matches(slot)) saveError(slot, "invalid save slot name")
     }
