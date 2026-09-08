@@ -24,6 +24,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +81,7 @@ import io.github.daisukikaffuchino.nekoscript.engine.effect.TransitionType
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.ContainerPoint
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.GameViewport
 import io.github.daisukikaffuchino.nekoscript.engine.viewport.LogicalPoint
+import io.github.daisukikaffuchino.nekoscript.engine.save.SaveThumbnail
 import io.github.daisukikaffuchino.nekoscript.engine.save.SaveSlotSummary
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ImageAssetResolver
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ResolvedImageAsset
@@ -329,6 +333,8 @@ fun GameScreen(
             state.saveMenu?.let { saveMenu ->
                 SaveMenuScreen(
                     saveMenu = saveMenu,
+                    imageAssets = imageAssets,
+                    imageLoader = imageLoader,
                     onAction = onAction,
                     modifier = Modifier.align(Alignment.Center),
                 )
@@ -507,6 +513,8 @@ private fun BacklogScreen(
 @Composable
 private fun SaveMenuScreen(
     saveMenu: SaveMenuView,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
     onAction: (GameAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -526,9 +534,17 @@ private fun SaveMenuScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
-                    Text(modeLabel, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        text = if (saveMenu.mode == SaveMenuMode.Save) "Choose a slot to overwrite." else "Choose a slot to load.",
+                        text = "$modeLabel · Page ${saveMenu.currentPage}/${saveMenu.pageCount}",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = if (saveMenu.mode == SaveMenuMode.Save) {
+                            "Choose a slot to overwrite."
+                        } else {
+                            "Choose a slot to load."
+                        },
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 12.sp,
                     )
@@ -538,16 +554,40 @@ private fun SaveMenuScreen(
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Column(
-                modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(5),
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                saveMenu.slots.forEach { slot ->
+                items(saveMenu.slots, key = SaveSlotSummary::slotId) { slot ->
                     SaveSlotCard(
                         slot = slot,
                         mode = saveMenu.mode,
+                        imageAssets = imageAssets,
+                        imageLoader = imageLoader,
                         onAction = onAction,
                     )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                (1..saveMenu.pageCount).forEach { page ->
+                    val selected = page == saveMenu.currentPage
+                    Button(
+                        onClick = { onAction(GameAction.SelectSaveMenuPage(page)) },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selected) Color(0xFFE2B84B) else Color(0xFF28322E),
+                            contentColor = if (selected) Color(0xFF17201D) else Color.White,
+                        ),
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Text(page.toString(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -558,6 +598,8 @@ private fun SaveMenuScreen(
 private fun SaveSlotCard(
     slot: SaveSlotSummary,
     mode: SaveMenuMode,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
     onAction: (GameAction) -> Unit,
 ) {
     val isLoadable = !slot.isEmpty && !slot.isBroken
@@ -570,7 +612,15 @@ private fun SaveSlotCard(
         SaveMenuMode.Load -> isLoadable
     }
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(SAVE_SLOT_CARD_ASPECT_RATIO)
+            .clickable(enabled = primaryEnabled) {
+                when (mode) {
+                    SaveMenuMode.Save -> onAction(GameAction.SaveToSlot(slot.slotId))
+                    SaveMenuMode.Load -> onAction(GameAction.LoadFromSlot(slot.slotId))
+                }
+            },
         color = when {
             slot.isBroken -> Color(0xFF4D2323)
             slot.isEmpty -> Color(0xB41D2420)
@@ -579,34 +629,44 @@ private fun SaveSlotCard(
         contentColor = Color.White,
         shape = MaterialTheme.shapes.small,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = primaryEnabled) {
-                    when (mode) {
-                        SaveMenuMode.Save -> onAction(GameAction.SaveToSlot(slot.slotId))
-                        SaveMenuMode.Load -> onAction(GameAction.LoadFromSlot(slot.slotId))
-                    }
-                }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+        Column(Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(0.55f),
+            ) {
+                SaveSlotThumbnail(
+                    thumbnail = slot.thumbnail,
+                    imageAssets = imageAssets,
+                    imageLoader = imageLoader,
+                    playtimeMillis = slot.playtimeMillis,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 Text(
                     text = slot.displayName,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                     color = when {
-                        slot.isBroken -> Color(0xFFFF8C8C)
-                        slot.isEmpty -> Color(0xFFE2B84B).copy(alpha = 0.86f)
-                        else -> Color(0xFFE2B84B)
+                        slot.isBroken -> Color(0xFFFFB3B3)
+                        slot.isEmpty -> Color(0xFFE2B84B).copy(alpha = 0.85f)
+                        else -> Color(0xFFF7F4E8)
                     },
-                    fontSize = 15.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                 )
-                Spacer(Modifier.height(3.dp))
+                slot.playtimeMillis?.let {
+                    Text(
+                        text = formatPlaytime(it),
+                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 10.sp,
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth().weight(0.45f).padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
                 Text(
                     text = when {
-                        slot.isBroken -> slot.errorMessage ?: "Broken save"
+                        slot.isBroken -> "Broken save"
                         slot.isEmpty -> "Empty slot"
                         else -> buildString {
                             slot.speaker?.takeIf(String::isNotBlank)?.let {
@@ -617,47 +677,84 @@ private fun SaveSlotCard(
                         }
                     },
                     color = when {
-                        slot.isBroken -> Color(0xFFFFB3B3)
+                        slot.isBroken -> Color(0xFFFF8C8C)
                         slot.isEmpty -> Color.White.copy(alpha = 0.55f)
                         else -> Color.White.copy(alpha = 0.92f)
                     },
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 2,
                 )
-                slot.contextLabel?.let {
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = it,
-                        color = Color.White.copy(alpha = 0.45f),
-                        fontSize = 11.sp,
-                    )
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = primaryLabel,
-                    color = if (primaryEnabled) Color.White else Color.White.copy(alpha = 0.35f),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = slot.contextLabel ?: slot.errorMessage.orEmpty(),
+                    color = if (slot.isBroken) Color(0xFFFFC3C3) else Color.White.copy(alpha = 0.45f),
+                    fontSize = 9.sp,
+                    lineHeight = 11.sp,
+                    maxLines = 1,
                 )
-                slot.timestamp?.let {
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        text = "ts: $it",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 10.sp,
-                    )
-                }
-                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = "Playtime ${slot.playtimeMillis?.let(::formatPlaytime) ?: "--:--"}",
+                    color = Color(0xFFE2B84B).copy(alpha = 0.88f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                )
                 TextButton(
                     onClick = { onAction(GameAction.DeleteSaveSlot(slot.slotId)) },
                     enabled = !slot.isEmpty,
+                    modifier = Modifier.align(Alignment.End),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                 ) {
                     Text("Delete", fontSize = 11.sp)
                 }
+                Text(
+                    text = primaryLabel,
+                    modifier = Modifier.align(Alignment.End),
+                    color = if (primaryEnabled) Color.White else Color.White.copy(alpha = 0.35f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun SaveSlotThumbnail(
+    thumbnail: SaveThumbnail?,
+    imageAssets: ImageAssetResolver,
+    imageLoader: ImageLoader,
+    playtimeMillis: Long?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.background(Color(0xFF1D2521)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (thumbnail == null) {
+            Text(
+                text = if (playtimeMillis == null) "No thumbnail" else "Thumbnail saved",
+                color = Color.White.copy(alpha = 0.35f),
+                fontSize = 10.sp,
+            )
+        } else {
+            BackgroundLayer(
+                background = thumbnail.backgroundId?.let(::BackgroundView),
+                imageAssets = imageAssets,
+                imageLoader = imageLoader,
+            )
+            CharacterLayer(
+                characters = thumbnail.characters.map {
+                    CharacterView(
+                        characterId = it.characterId,
+                        expression = it.expression,
+                        position = it.position,
+                    )
+                },
+                effect = null,
+                imageAssets = imageAssets,
+                imageLoader = imageLoader,
+            )
+            CgLayer(thumbnail.cgId, imageAssets, imageLoader)
         }
     }
 }
@@ -886,6 +983,27 @@ private const val AUTO_DELAY_MILLIS = 1_200L
 private const val SKIP_DELAY_MILLIS = 60L
 private const val CHARACTER_FADE_IN_MILLIS = 140
 private const val CHARACTER_FRAME_WIDTH_FRACTION = 0.46f
+private const val SAVE_SLOT_CARD_ASPECT_RATIO = 0.82f
+
+private fun formatPlaytime(playtimeMillis: Long): String {
+    val totalSeconds = playtimeMillis / 1000L
+    val seconds = (totalSeconds % 60L).toInt()
+    val minutes = ((totalSeconds / 60L) % 60L).toInt()
+    val hours = (totalSeconds / 3600L).toInt()
+    return buildString {
+        if (hours > 0) {
+            append(hours)
+            append(':')
+            append(minutes.toString().padStart(2, '0'))
+            append(':')
+            append(seconds.toString().padStart(2, '0'))
+        } else {
+            append(minutes.toString().padStart(2, '0'))
+            append(':')
+            append(seconds.toString().padStart(2, '0'))
+        }
+    }
+}
 
 private fun Modifier.logicalPointerInput(
     viewport: GameViewport,

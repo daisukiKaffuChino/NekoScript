@@ -43,7 +43,12 @@ class JsonSaveManager(
 
     override suspend fun save(slot: String, state: GameState): SaveData = mutex.withLock {
         validateSlot(slot)
-        val save = SaveData(currentVersion, timestampProvider(), state)
+        val save = SaveData(
+            version = currentVersion,
+            timestamp = timestampProvider(),
+            state = state,
+            thumbnail = state.toSaveThumbnail(),
+        )
         try {
             storage.write(slot, json.encodeToString(save))
         } catch (error: EngineException.SaveError) {

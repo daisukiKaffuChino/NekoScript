@@ -1,6 +1,8 @@
 package io.github.daisukikaffuchino.nekoscript.engine.save
 
 import io.github.daisukikaffuchino.nekoscript.engine.error.EngineException
+import io.github.daisukikaffuchino.nekoscript.engine.background.BackgroundState
+import io.github.daisukikaffuchino.nekoscript.engine.character.CharacterState
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.GameState
 import io.github.daisukikaffuchino.nekoscript.engine.runtime.RuntimeStatus
 import io.github.daisukikaffuchino.nekoscript.engine.script.ScriptPosition
@@ -47,6 +49,26 @@ class JsonSaveManagerTest {
 
         assertNull(storage.values["slot-1"])
         assertNull(manager.load("slot-1"))
+    }
+
+    @Test
+    fun persistsThumbnailMetadataForSaveMenuPreviews() = runTest {
+        val storage = FakeStorage()
+        val manager = JsonSaveManager(storage, timestampProvider = { 7L })
+        val state = GameState(
+            scriptId = "main.avg",
+            playtimeMillis = 42_000L,
+            background = BackgroundState("school"),
+            characters = listOf(CharacterState("yuki", "happy")),
+        )
+
+        val saved = manager.save("slot-1", state)
+        val loaded = manager.load("slot-1")
+
+        assertEquals(42_000L, saved.state.playtimeMillis)
+        assertEquals("school", saved.thumbnail?.backgroundId)
+        assertEquals(1, saved.thumbnail?.characters?.size)
+        assertEquals(saved.thumbnail, loaded?.thumbnail)
     }
 
     @Test

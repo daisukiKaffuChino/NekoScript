@@ -29,6 +29,7 @@ import kotlinx.serialization.Serializable
  * @property audio persistent logical audio playback state
  * @property cgId project-defined CG identifier currently covering the scene
  * @property visualEffect latest renderer-independent effect request
+ * @property playtimeMillis accumulated session playtime used by save-slot previews
  */
 @Serializable
 data class GameState(
@@ -45,9 +46,11 @@ data class GameState(
     val audio: AudioState = AudioState(),
     val cgId: String? = null,
     val visualEffect: VisualEffectState? = null,
+    val playtimeMillis: Long = 0L,
 ) {
     init {
         require(scriptId.isNotBlank()) { "Script id must not be blank." }
+        require(playtimeMillis >= 0) { "Playtime must not be negative." }
     }
 }
 

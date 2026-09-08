@@ -60,6 +60,13 @@ sealed interface GameAction {
         }
     }
 
+    /** Selects the one-based save-menu page index. */
+    data class SelectSaveMenuPage(val pageIndex: Int) : GameAction {
+        init {
+            require(pageIndex > 0) { "Save menu page index must be positive." }
+        }
+    }
+
     /** Updates the presentation delay between revealed characters. */
     data class SetTextSpeed(val millisPerCharacter: Int) : GameAction {
         init {

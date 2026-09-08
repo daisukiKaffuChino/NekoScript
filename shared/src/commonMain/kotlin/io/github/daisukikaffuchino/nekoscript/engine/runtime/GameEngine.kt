@@ -20,14 +20,18 @@ class GameEngine(
     private val saveManager: SaveManager? = null,
     private val project: GameProject? = null,
     private val hotspotBindings: Map<String, HotspotDefinition> = emptyMap(),
+    private val playtimeSource: PlaytimeSource = PlaytimeSource.monotonic(),
 ) {
     private val dispatchMutex = Mutex()
     private var isAutoMode = false
     private var isSkipMode = false
     private var isBacklogOpen = false
     private var saveMenuMode: SaveMenuMode? = null
+    private var saveMenuPageIndex: Int = 1
     private var saveSlotSummaries: List<SaveSlotSummary> = emptyList()
     private var textSpeedMillis = DEFAULT_TEXT_SPEED_MILLIS
+    private var accumulatedPlaytimeMillis: Long = runtime.state.value.playtimeMillis
+    private var playtimeMark = playtimeSource.mark()
     private val mutableViewState = MutableStateFlow(currentViewState())
 
     /** Presentation-ready state observed by a renderer. */
@@ -36,6 +40,7 @@ class GameEngine(
     /** Handles one player or presentation action. */
     suspend fun dispatch(action: GameAction) = dispatchMutex.withLock {
         try {
+            advancePlaytime()
             when (action) {
                 GameAction.Next -> runtime.next()
                 is GameAction.SelectChoice -> runtime.selectChoice(action.index)
@@ -58,15 +63,21 @@ class GameEngine(
                     refreshSaveMenuSlots()
                 }
                 GameAction.CloseSaveMenu -> saveMenuMode = null
+                is GameAction.SelectSaveMenuPage -> {
+                    saveMenuPageIndex = action.pageIndex.coerceIn(1, SAVE_MENU_PAGE_COUNT)
+                    if (saveMenuMode != null) refreshSaveMenuSlots()
+                }
                 is GameAction.SaveToSlot -> {
-                    requireSaveManager().save(action.slotId, runtime.state.value)
+                    requireSaveManager().save(action.slotId, captureSaveState())
                     refreshSaveMenuSlots()
                 }
                 is GameAction.LoadFromSlot -> {
                     requireSaveManager().load(action.slotId)?.let {
                         runtime.restore(it.state)
+                        accumulatedPlaytimeMillis = it.state.playtimeMillis
                         isBacklogOpen = false
                         saveMenuMode = null
+                        resetPlaytimeMark()
                     }
                 }
                 is GameAction.DeleteSaveSlot -> {
@@ -74,13 +85,15 @@ class GameEngine(
                     refreshSaveMenuSlots()
                 }
                 GameAction.QuickSave -> {
-                    requireSaveManager().save(QUICK_SAVE_SLOT, runtime.state.value)
+                    requireSaveManager().save(QUICK_SAVE_SLOT, captureSaveState())
                     if (saveMenuMode != null) refreshSaveMenuSlots()
                 }
                 GameAction.QuickLoad -> requireSaveManager().load(QUICK_SAVE_SLOT)?.let {
                     runtime.restore(it.state)
+                    accumulatedPlaytimeMillis = it.state.playtimeMillis
                     isBacklogOpen = false
                     if (saveMenuMode != null) refreshSaveMenuSlots()
+                    resetPlaytimeMark()
                 }
                 is GameAction.SetTextSpeed -> textSpeedMillis = action.millisPerCharacter
                 is GameAction.CompleteVisualEffect -> runtime.completeVisualEffect(action.sequence)
@@ -105,7 +118,12 @@ class GameEngine(
         project = project,
     ).copy(
         saveMenu = saveMenuMode?.let { mode ->
-            SaveMenuView(mode = mode, slots = saveSlotSummaries)
+            SaveMenuView(
+                mode = mode,
+                currentPage = saveMenuPageIndex,
+                pageCount = SAVE_MENU_PAGE_COUNT,
+                slots = saveSlotSummaries,
+            )
         },
     )
 
@@ -114,7 +132,7 @@ class GameEngine(
 
     private suspend fun refreshSaveMenuSlots() {
         val manager = requireSaveManager()
-        saveSlotSummaries = DEFAULT_SAVE_SLOTS.map { slot ->
+        saveSlotSummaries = saveSlotsForPage(saveMenuPageIndex).map { slot ->
             try {
                 manager.load(slot.slotId)?.toSlotSummary(slot.slotId, slot.displayName)
                     ?: SaveSlotSummary.empty(slot.slotId, slot.displayName)
@@ -129,17 +147,43 @@ class GameEngine(
         }
     }
 
+    private fun captureSaveState(): io.github.daisukikaffuchino.nekoscript.engine.runtime.GameState =
+        runtime.state.value.copy(playtimeMillis = accumulatedPlaytimeMillis)
+
+    private fun advancePlaytime() {
+        val elapsedMillis = playtimeMark.elapsedMillis()
+        if (elapsedMillis > 0) {
+            accumulatedPlaytimeMillis += elapsedMillis
+        }
+        resetPlaytimeMark()
+    }
+
+    private fun resetPlaytimeMark() {
+        playtimeMark = playtimeSource.mark()
+    }
+
+    private fun saveSlotsForPage(pageIndex: Int): List<SaveSlotDefinition> {
+        val page = pageIndex.coerceIn(1, SAVE_MENU_PAGE_COUNT)
+        val startInclusive = (page - 1) * SAVE_MENU_PAGE_SIZE + 1
+        return (startInclusive until startInclusive + SAVE_MENU_PAGE_SIZE).map { slotNumber ->
+            SaveSlotDefinition(
+                slotId = saveSlotId(slotNumber),
+                displayName = saveSlotDisplayName(slotNumber),
+            )
+        }
+    }
+
+    private fun saveSlotId(slotNumber: Int): String =
+        "slot-${slotNumber.toString().padStart(3, '0')}"
+
+    private fun saveSlotDisplayName(slotNumber: Int): String =
+        "Slot ${slotNumber.toString().padStart(3, '0')}"
+
     companion object {
         /** Stable storage slot used by quick-save actions. */
         const val QUICK_SAVE_SLOT: String = "quick"
-
-        private val DEFAULT_SAVE_SLOTS = (1..12).map { index ->
-            val suffix = index.toString().padStart(2, '0')
-            SaveSlotDefinition(
-                slotId = "slot-$suffix",
-                displayName = "Slot $suffix",
-            )
-        }
+        private const val SAVE_MENU_PAGE_COUNT: Int = 10
+        private const val SAVE_MENU_PAGE_SIZE: Int = 10
     }
 }
 

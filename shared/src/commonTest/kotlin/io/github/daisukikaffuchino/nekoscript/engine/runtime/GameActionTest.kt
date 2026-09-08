@@ -45,11 +45,13 @@ class GameActionTest {
 
     @Test
     fun saveSlotActionsValidateSlotIds() {
-        assertEquals("slot-01", GameAction.SaveToSlot("slot-01").slotId)
-        assertEquals("slot-01", GameAction.LoadFromSlot("slot-01").slotId)
-        assertEquals("slot-01", GameAction.DeleteSaveSlot("slot-01").slotId)
+        assertEquals("slot-001", GameAction.SaveToSlot("slot-001").slotId)
+        assertEquals("slot-001", GameAction.LoadFromSlot("slot-001").slotId)
+        assertEquals("slot-001", GameAction.DeleteSaveSlot("slot-001").slotId)
+        assertEquals(1, GameAction.SelectSaveMenuPage(1).pageIndex)
         assertFailsWith<IllegalArgumentException> { GameAction.SaveToSlot(" ") }
         assertFailsWith<IllegalArgumentException> { GameAction.LoadFromSlot(" ") }
         assertFailsWith<IllegalArgumentException> { GameAction.DeleteSaveSlot(" ") }
+        assertFailsWith<IllegalArgumentException> { GameAction.SelectSaveMenuPage(0) }
     }
 }

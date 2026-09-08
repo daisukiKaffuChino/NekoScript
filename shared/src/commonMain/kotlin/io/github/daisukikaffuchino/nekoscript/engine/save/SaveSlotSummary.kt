@@ -10,10 +10,11 @@ package io.github.daisukikaffuchino.nekoscript.engine.save
 data class SaveSlotSummary(
     val slotId: String,
     val displayName: String,
-    val timestamp: Long? = null,
+    val playtimeMillis: Long? = null,
     val speaker: String? = null,
     val previewText: String? = null,
     val contextLabel: String? = null,
+    val thumbnail: SaveThumbnail? = null,
     val isEmpty: Boolean = false,
     val isBroken: Boolean = false,
     val errorMessage: String? = null,
@@ -21,7 +22,7 @@ data class SaveSlotSummary(
     init {
         require(slotId.isNotBlank()) { "Save slot id must not be blank." }
         require(displayName.isNotBlank()) { "Save slot display name must not be blank." }
-        require(timestamp == null || timestamp >= 0) { "Save slot timestamp must not be negative." }
+        require(playtimeMillis == null || playtimeMillis >= 0) { "Save slot playtime must not be negative." }
     }
 
     companion object {
@@ -59,9 +60,10 @@ fun SaveData.toSlotSummary(slotId: String, displayName: String): SaveSlotSummary
     return SaveSlotSummary(
         slotId = slotId,
         displayName = displayName,
-        timestamp = timestamp,
+        playtimeMillis = state.playtimeMillis,
         speaker = speaker,
         previewText = previewText,
         contextLabel = contextLabel,
+        thumbnail = this.thumbnail ?: state.toSaveThumbnail(),
     )
 }
