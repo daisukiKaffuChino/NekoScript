@@ -59,7 +59,7 @@ class GameEngineTest {
 
         engine.dispatch(GameAction.Next)
         assertEquals("First", engine.viewState.value.dialogue?.text)
-        engine.dispatch(GameAction.QuickSave)
+        engine.dispatch(GameAction.QuickSave())
         engine.dispatch(GameAction.Next)
         assertEquals("Second", engine.viewState.value.dialogue?.text)
 

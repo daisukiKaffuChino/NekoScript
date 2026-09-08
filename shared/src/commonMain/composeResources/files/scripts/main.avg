@@ -5,7 +5,7 @@ transition fade 500
 say "清晨的校门口，阳光刚刚越过教学楼。"
 play_se "school_bell"
 character "yuki" "normal" left
-play_voice "yuki_2"
+play_voice "yuki_1"
 say "悠希" "你终于来了，我还以为要迟到了。"
 character "aoi" "normal" right
 play_voice "aoi_1"
@@ -16,7 +16,7 @@ character "aoi" "teasing" right
 play_voice "aoi_2"
 say "葵" "怎么，见到我太惊讶，连招呼都忘了？"
 move_character "yuki" center 300
-play_voice "yuki_1"
+play_voice "yuki_2"
 say "悠希" "早上好。葵也来了，那我们一起进去吧？"
 move_character "yuki" left 250
 character "aoi" "happy" right

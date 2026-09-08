@@ -1,5 +1,7 @@
 package io.github.daisukikaffuchino.nekoscript.engine.runtime
 
+import io.github.daisukikaffuchino.nekoscript.engine.save.SaveThumbnail
+
 /** An input intent sent from a presentation layer to the game engine. */
 sealed interface GameAction {
     /** Requests that the engine advance from the current pause point. */
@@ -25,7 +27,7 @@ sealed interface GameAction {
     data object CloseBacklog : GameAction
 
     /** Requests a save in the designated quick-save slot. */
-    data object QuickSave : GameAction
+    data class QuickSave(val thumbnail: SaveThumbnail? = null) : GameAction
 
     /** Requests loading from the designated quick-save slot. */
     data object QuickLoad : GameAction
@@ -40,7 +42,7 @@ sealed interface GameAction {
     data object CloseSaveMenu : GameAction
 
     /** Saves the current runtime state to [slotId]. */
-    data class SaveToSlot(val slotId: String) : GameAction {
+    data class SaveToSlot(val slotId: String, val thumbnail: SaveThumbnail? = null) : GameAction {
         init {
             require(slotId.isNotBlank()) { "Save slot id must not be blank." }
         }

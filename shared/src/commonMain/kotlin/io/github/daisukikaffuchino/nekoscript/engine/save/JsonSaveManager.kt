@@ -41,13 +41,20 @@ class JsonSaveManager(
         }
     }
 
-    override suspend fun save(slot: String, state: GameState): SaveData = mutex.withLock {
+    override suspend fun save(
+        slot: String,
+        state: GameState,
+        thumbnail: SaveThumbnail?,
+    ): SaveData = mutex.withLock {
         validateSlot(slot)
         val save = SaveData(
             version = currentVersion,
             timestamp = timestampProvider(),
             state = state,
-            thumbnail = state.toSaveThumbnail(),
+            thumbnail = when {
+                thumbnail != null -> thumbnail.mergeLogicalPreview(state.toSaveThumbnail())
+                else -> state.toSaveThumbnail()
+            },
         )
         try {
             storage.write(slot, json.encodeToString(save))

@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.daisukikaffuchino.nekoscript.engine.save.AndroidPreferencesSaveStorage
+import io.github.daisukikaffuchino.nekoscript.ui.rememberAndroidSaveFrameCapture
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -18,6 +19,7 @@ class MainActivity : ComponentActivity() {
             App(
                 saveStorage = remember { AndroidPreferencesSaveStorage(this) },
                 timestampProvider = System::currentTimeMillis,
+                frameCapture = rememberAndroidSaveFrameCapture(),
             )
         }
     }

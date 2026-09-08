@@ -6,6 +6,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import io.github.daisukikaffuchino.nekoscript.engine.save.JvmFileSaveStorage
+import io.github.daisukikaffuchino.nekoscript.ui.rememberDesktopSaveFrameCapture
 import java.nio.file.Path
 
 fun main() = application {
@@ -22,6 +23,7 @@ fun main() = application {
         App(
             saveStorage = saveStorage,
             timestampProvider = System::currentTimeMillis,
+            frameCapture = rememberDesktopSaveFrameCapture(),
         )
     }
 }

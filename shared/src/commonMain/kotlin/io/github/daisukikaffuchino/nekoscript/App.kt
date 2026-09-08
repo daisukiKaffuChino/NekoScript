@@ -35,6 +35,7 @@ import io.github.daisukikaffuchino.nekoscript.engine.project.GameProjectSource
 import io.github.daisukikaffuchino.nekoscript.engine.save.InMemorySaveStorage
 import io.github.daisukikaffuchino.nekoscript.engine.save.JsonSaveManager
 import io.github.daisukikaffuchino.nekoscript.engine.save.SaveStorage
+import io.github.daisukikaffuchino.nekoscript.ui.SaveFrameCapture
 import io.github.daisukikaffuchino.nekoscript.ui.GameScreen
 import io.github.daisukikaffuchino.nekoscript.ui.asset.ComposeResourceImageAssetResolver
 import kotlinx.coroutines.CancellationException
@@ -45,6 +46,7 @@ fun App(
     saveStorage: SaveStorage,
     timestampProvider: () -> Long,
     projectSource: GameProjectSource = defaultProjectSource,
+    frameCapture: SaveFrameCapture? = null,
 ) {
     val platformContext = LocalPlatformContext.current
     val imageLoader = remember(platformContext, projectSource) {
@@ -112,6 +114,7 @@ fun App(
                     imageLoader = imageLoader,
                     assetLoadIssues = assetLoadIssues,
                     hotspotRegistry = currentSession.hotspotRegistry,
+                    frameCapture = frameCapture,
                     onAction = { action -> scope.launch { engine.dispatch(action) } },
                 )
             }

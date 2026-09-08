@@ -68,7 +68,7 @@ class GameEngine(
                     if (saveMenuMode != null) refreshSaveMenuSlots()
                 }
                 is GameAction.SaveToSlot -> {
-                    requireSaveManager().save(action.slotId, captureSaveState())
+                    requireSaveManager().save(action.slotId, captureSaveState(), action.thumbnail)
                     refreshSaveMenuSlots()
                 }
                 is GameAction.LoadFromSlot -> {
@@ -84,8 +84,8 @@ class GameEngine(
                     requireSaveManager().delete(action.slotId)
                     refreshSaveMenuSlots()
                 }
-                GameAction.QuickSave -> {
-                    requireSaveManager().save(QUICK_SAVE_SLOT, captureSaveState())
+                is GameAction.QuickSave -> {
+                    requireSaveManager().save(QUICK_SAVE_SLOT, captureSaveState(), action.thumbnail)
                     if (saveMenuMode != null) refreshSaveMenuSlots()
                 }
                 GameAction.QuickLoad -> requireSaveManager().load(QUICK_SAVE_SLOT)?.let {

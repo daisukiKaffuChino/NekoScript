@@ -18,7 +18,7 @@ class GameActionTest {
     @Test
     fun statelessActionsHaveStableIdentity() {
         assertEquals(GameAction.Next, GameAction.Next)
-        assertEquals(GameAction.QuickSave, GameAction.QuickSave)
+        assertEquals(GameAction.QuickSave(), GameAction.QuickSave())
         assertEquals(GameAction.OpenSaveMenu, GameAction.OpenSaveMenu)
         assertEquals(GameAction.OpenLoadMenu, GameAction.OpenLoadMenu)
         assertEquals(GameAction.CloseSaveMenu, GameAction.CloseSaveMenu)
